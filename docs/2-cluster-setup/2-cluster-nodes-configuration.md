@@ -7,7 +7,19 @@ last_modified_at: "19-02-2024"
 
 # {{ $frontmatter.title }}
 
-- [{{ $frontmatter.title }}](#-frontmattertitle-)
+<div style="display: flex; justify-content: center; align-items: center;">
+    <div style="flex: 0 0 auto; margin-right: 60x;"> <!-- Adjust margin as needed for spacing -->
+        <img src="../resources/cluster-setup/raspberry-icon-1.jpg" alt="Raspberry Pi" width="100" />
+    </div>
+        <div style="flex: 0 0 auto;">
+        <img src="../resources/cluster-setup/circuit-board-icon-1.jpg" alt="Single Board Computing" width="100" />
+    </div>
+    <div style="flex: 0 0 auto;">
+        <img src="../resources/cluster-setup/orange-icon-1.jpg" alt="Orange Pi" width="100" />
+    </div>
+</div>
+
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
   - [Cluster Composition](#cluster-composition)
   - [Raspberry Pi Nodes Configuration](#raspberry-pi-nodes-configuration)
     - [Storage Configuration](#storage-configuration)
@@ -17,28 +29,28 @@ last_modified_at: "19-02-2024"
     - [Storage Configuration](#storage-configuration-1)
     - [Manual OS Installation and Initial Configuration](#manual-os-installation-and-initial-configuration)
       - [Identifying Orange Pi IP Address and Remote Connection](#identifying-orange-pi-ip-address-and-remote-connection)
-      - [Configuration Steps](#configuration-steps)
+      - [Configuration Steps](#configuration-steps) -->
 
 ## Cluster Composition
 
 The PiKube Kubernetes Cluster comprises:
 
-**3 Master Nodes:**
+- **3 Master Nodes:**
 
-- blueberry-master (Raspberry Pi 4B, 4GB)
-- strawberry-master (Raspberry Pi 4B, 8GB)
-- blackberry-master (Raspberry Pi 4B, 8GB)
+  - `blueberry-master` (Raspberry Pi 4B, 4GB)
+  - `strawberry-master` (Raspberry Pi 4B, 8GB)
+  - `blackberry-master` (Raspberry Pi 4B, 8GB)
 
-**4 Worker Nodes:**
+- **4 Worker Nodes:**
 
-- cranberry-worker  (Raspberry Pi 5, 8GB)
-- raspberry-worker  (Raspberry Pi 3B+, 1GB)
-- orange-worker     (Orange Pi 5B, 16GB)
-- mandarine-worker  (Orange Pi 5B, 16GB)
+  - `cranberry-worker`  (Raspberry Pi 5, 8GB)
+  - `raspberry-worker`  (Raspberry Pi 3B+, 1GB)
+  - `orange-worker`     (Orange Pi 5B, 16GB)
+  - `mandarine-worker`  (Orange Pi 5B, 16GB)
 
-## Raspberry Pi Nodes Configuration
+## Raspberry Pi Nodes
 
-### Storage Configuration
+### Raspberry Storage Configuration
 
 Nodes boot from an SD Card or SSD Disk, based on the selected storage architecture.
 
@@ -48,15 +60,15 @@ Nodes boot from an SD Card or SSD Disk, based on the selected storage architectu
 
 - **`SAMSUNG EVO Select MicroSD-Memory-Card`** for **`strawberry-master`** and **`cranberry-worker`**: 256GB, designed to provide ample storage for extensive Kubernetes operations.
 
-- **`SanDisk SDSQXAO MicroSDXC UHS-I U3 for **`blueberry-master`**: 128GB, enhancing speed and reliability for master node operations.
+- **`SanDisk SDSQXAO MicroSDXC UHS-I U3`** for **`blueberry-master`**: 128GB, enhancing speed and reliability for master node operations.
 
-- **`SanDisk Industrial EDGE MicroSD for **`raspberry-worker`**: 32GB CLASS 10 A1, optimized for stable and reliable operations.
+- **`SanDisk Industrial EDGE MicroSD`** for **`raspberry-worker`**: 32GB CLASS 10 A1, optimized for stable and reliable operations.
 
 **Centralized SAN Architecture:** Planned for future implementation to further enhance storage solutions.
 
 ### OS Installation and Initial Configuration
 
-**`Ubuntu Server 22.04.x LTS`** is the chosen operating system for Raspberry Pi nodes, installed using a [**`preconfigured cloud image`**](https://ubuntu.com/download/raspberry-pi). Initial configuration leverages cloud-init configuration files, specifically **`user-data`**, which is modified prior to the first startup.
+**`Ubuntu Server 24.04.x LTS`** is the chosen operating system for Raspberry Pi nodes, installed using a [**`preconfigured cloud image`**](https://ubuntu.com/download/raspberry-pi). Initial configuration leverages cloud-init configuration files, specifically **`user-data`**, which is modified prior to the first startup.
 
 - **`Procedure`**: Burn the Ubuntu OS image onto an SD-card using tools such as [**`Raspberry PI Imager`**](https://www.raspberrypi.com/software/) or [**`Balena Etcher`**](https://etcher.balena.io/). Modify the **`user-data`** file within the **`/boot`** directory on the SD Card to customize the initial setup.
 
@@ -64,10 +76,7 @@ Nodes boot from an SD Card or SSD Disk, based on the selected storage architectu
 
 |  Dedicated Disks  |
 |:-----------------:|
-| [user-data for blueberry-master](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/build/metal/raspberry-pi/cloud-init/nodes/blueberry-master/user-data) |
-| [user-data for strawberry-master](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/build/metal/raspberry-pi/cloud-init/nodes/strawberry-master/user-data) |
-| [user-data for cranberry-worker](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/build/metal/raspberry-pi/cloud-init/nodes/cranberry-worker/user-data) |
-| [user-data for raspberry-worker](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/build/metal/raspberry-pi/cloud-init/nodes/raspberry-worker/user-data) |
+| [user-data](https://github.com/AElQazouiInsights/pikube-kubernetes-service/metal/cloud-init/raspberry-pi/nodes/user-data) |
 
 </div>
 
@@ -81,7 +90,7 @@ Nodes boot from an SD Card or SSD Disk, based on the selected storage architectu
   locale: en_GB.UTF-8
 
   # Hostname
-  hostname: nodeX
+  hostname: <node-name>
 
   # cloud-init not managing hosts file. only hostname is added
   manage_etc_hosts: localhost
@@ -95,7 +104,7 @@ Nodes boot from an SD Card or SSD Disk, based on the selected storage architectu
       sudo: ALL=(ALL) NOPASSWD:ALL
       lock_passwd: true
       ssh_authorized_keys:
-        - my-key
+        - <public-key>
 
   # Reboot to enable Wifi configuration (more details in network-config file)
   power_state:
@@ -107,10 +116,10 @@ Nodes boot from an SD Card or SSD Disk, based on the selected storage architectu
 Secure Shell (SSH) keys are a pair of cryptographic keys that can be used to authenticate to an SSH server as an alternative to password-based logins. A private key, which is secret, and a public key, which is shared, are used in the authentication process. Here is a procedure to generate an SSH key pair, referred to as my_key in the cloud-config examples:
 
 ```bash
-ssh-keygen -t rsa -b 4096 -f ~/.ssh/my-key
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/key-generation
 ```
 
-This command creates a private key **`my-key`** and a public key **`my-key.pub`** in the **`~/.ssh/`** directory.
+This command creates a private key **`key-generation`** and a public key **`key-generation.pub`** in the **`~/.ssh/`** directory.
 
 - Connect and update each node
 
@@ -129,13 +138,13 @@ sudo apt-get update && sudo apt-get upgrade -y
 gpu_mem=16
 ```
 
-> 📌 **Note**
+> [!TIP]
 >
-> *Since Raspberry Pis in the cluster are configured as headless servers without monitors and are using the server version of Ubuntu distribution (without the desktop GUI), the reserved GPU memory for Raspberry Pis can be set to the lowest possible value (16MB).*
+> Since Raspberry Pis in the cluster are configured as headless servers without monitors and are using the server version of Ubuntu distribution (without the desktop GUI), the reserved GPU memory for Raspberry Pis can be set to the lowest possible value (16MB).
 
 ## Orange Pi Nodes
 
-### Storage Configuration
+### Orange Storage Configuration
 
 Orange Pi nodes can boot from an SD Card or SSD Disk, contingent on the chosen storage architecture.
 
@@ -266,6 +275,6 @@ ip addr show end1
 sudo shutdown -r now
 ```
 
-> 📢 Note
+> [!NOTE]
 >
-> *To enable the WIFI interface (wlan0) on Orange Pi, if needed, follow this [**`wiki`**](https://github.com/Joshua-Riek/ubuntu-rockchip/wiki/Orange-Pi-5).*
+> To enable the WIFI interface (wlan0) on Orange Pi, if needed, follow this [**`wiki`**](https://github.com/Joshua-Riek/ubuntu-rockchip/wiki/Orange-Pi-5).

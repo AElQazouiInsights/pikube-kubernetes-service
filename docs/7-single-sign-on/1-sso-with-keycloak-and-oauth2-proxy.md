@@ -16,7 +16,7 @@ last_modified_at: "11-03-2024"
     </div>
 </div>
 
-- [{{ $frontmatter.title }}](#-frontmattertitle-)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
   - [Architecture Overview](#architecture-overview)
   - [Setting Up Keycloak on Kubernetes](#setting-up-keycloak-on-kubernetes)
     - [Alternative installation using External Secret (GitOps)](#alternative-installation-using-external-secret-gitops)
@@ -28,7 +28,7 @@ last_modified_at: "11-03-2024"
   - [OAuth2-Proxy Installation](#oauth2-proxy-installation)
     - [Secure Deployment with External Secrets in a GitOps Workflow](#secure-deployment-with-external-secrets-in-a-gitops-workflow)
     - [Standard Installation](#standard-installation)
-  - [Integrating with Ingress](#integrating-with-ingress)
+  - [Integrating with Ingress](#integrating-with-ingress) -->
 
 This guide outlines the implementation of Single Sign-On (SSO) within the PiKube Kubernetes Service using [**`Keycloak`**](https://www.keycloak.org/) for centralized authentication and OAuth2-Proxy for secure access management. The solution enables:
 

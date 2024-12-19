@@ -5,6 +5,8 @@ description: How to disable default K3S load balancer and configure a custom Met
 last_modified_at: "12-11-2023"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="metal-lb"
     src="../resources/networking/metal-lb-logo.svg"
@@ -12,12 +14,13 @@ last_modified_at: "12-11-2023"
     height="%">
 </p>
 
-- [Disabling the Klipper Load Balancer](#disabling-the-klipper-load-balancer)
-- [Initial Services Post-Installation](#initial-services-post-installation)
-- [Why Choose Metal LB?](#why-choose-metal-lb)
-- [Metal LB's Role](#metal-lbs-role)
-- [How Metal LB Operates](#how-metal-lb-operates)
-- [Install Metal Load Balancer using Helm](#install-metal-load-balancer-using-helm)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
+  - [Disabling the Klipper Load Balancer](#disabling-the-klipper-load-balancer)
+  - [Initial Services Post-Installation](#initial-services-post-installation)
+  - [Why Choose Metal LB?](#why-choose-metal-lb)
+  - [Metal LB's Role](#metal-lbs-role)
+  - [How Metal LB Operates](#how-metal-lb-operates)
+  - [Install Metal Load Balancer using Helm](#install-metal-load-balancer-using-helm) -->
 
 Opting for **`Metal LB`** in place of the default **`Klipper Load Balancer`** in K3S is a strategic choice due to **`Metal LB`**'s versatility and broad compatibility with different Kubernetes distributions. Its adaptability across various environments renders **`Metal LB`** a more favorable option for load balancing needs in Kubernetes.
 

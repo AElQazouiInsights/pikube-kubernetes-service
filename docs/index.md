@@ -11,7 +11,7 @@ hero:
   tagline: Deploy, manage, and scale your Pi-based K3s cluster with ease.
   # Image displayed next to the hero text. Adjust to your logo or a representative image.
   image:
-    src: /public/pikube-logo-1.webp
+    src: /pikube-logo-1.webp
     alt: PiKube
 
   # Actions are CTA buttons placed in the hero section.

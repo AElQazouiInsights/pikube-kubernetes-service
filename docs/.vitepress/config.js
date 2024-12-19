@@ -1,24 +1,34 @@
 // .vitepress/config.js
 import { defineConfig } from 'vitepress'
 
+// Export the VitePress configuration using defineConfig for better TypeScript support and IntelliSense
 export default defineConfig({
-    title: 'PiKube Documentation',
-    description: 'Comprehensive documentation for the PiKube Kubernetes Service.',
-    base: '/', // Adjust if deploying to a sub-path
-
+    // **Site Metadata**
+    title: 'PiKube Documentation', // The title of your documentation site
+    description: 'Comprehensive documentation for the PiKube Kubernetes Service.', // A brief description of your site
+    base: '/pikube-kubernetes-service/', // Base URL the site will be deployed at (adjust if deploying to a sub-path)
+    
+    markdown: {
+        toc: false // This disables the TOC globally
+        },
+    
+      // **Theme Configuration**
     themeConfig: {
-        logo: '/pie.svg', // Update to a preferred logo path
-
+        // **Logo Configuration**
+        logo: '/pie.svg', // Path to your site's logo image. Ensure 'pie.svg' is in the 'public' directory
+        outline: 'deep', // This will ensure that the TOC includes deeper levels of headings, creating a nested structure
+        // **Navigation Bar**
         nav: [
-        { text: 'Home', link: '/' },
-        { text: 'Docs', link: '/1-project-architecture-purpose/1-project-purpose' },
+        { text: 'Home', link: '/' }, // Link to the home page
+        { text: 'Docs', link: '/1-project-architecture-purpose/1-project-purpose' }, // Link to the documentation section
         ],
 
+        // **Sidebar Configuration**
         sidebar: {
-        '/': [
+        '/': [ // Applies to all routes starting with '/'
             {
-            text: 'Project Architecture & Purpose',
-            collapsed: true,
+            text: 'Project Architecture & Purpose', // Section title in the sidebar
+            collapsed: true, // Whether the section is collapsed by default
             items: [
                 { text: 'Project Purpose', link: '/1-project-architecture-purpose/1-project-purpose' },
                 { text: 'Architecture', link: '/1-project-architecture-purpose/2-architecture' },
@@ -96,8 +106,7 @@ export default defineConfig({
             text: 'Backup',
             collapsed: true,
             items: [
-                // Assuming you have markdown files under /10-backup/
-                // Add items here if there are specific markdown files
+                // Add specific markdown files under /10-backup/ if available
                 // Example:
                 // { text: 'Backup Strategy', link: '/10-backup/backup-strategy' },
             ],
@@ -117,10 +126,11 @@ export default defineConfig({
             ],
             },
             {
-            text: 'Reference Docs',
+            text: 'Further Reading',
             collapsed: true,
             items: [
-                { text: 'Utilities', link: '/13-reference-docs/utilities' },
+                { text: 'Kubernetes Commands and Tools Guide', link: '/13-further-reading/utilities' },
+                { text: 'Kubernetes Networking Fundamentals', link: '/13-further-reading/kubernetes-networking-fundamentals' },
             ],
             },
             {
@@ -136,18 +146,21 @@ export default defineConfig({
         ],
         },
 
+        // **Edit Link Configuration**
         editLink: {
-        pattern: 'https://github.com/YourUsername/PiKube-Kubernetes-Cluster/edit/main/docs/:path',
-        text: 'Edit this page on GitHub',
+        pattern: 'https://github.com/YourUsername/PiKube-Kubernetes-Cluster/edit/main/docs/:path', // URL pattern for the "Edit this page" link
+        text: 'Edit this page on GitHub', // Text for the edit link
         },
 
+        // **Social Links**
         socialLinks: [
-        { icon: 'github', link: 'https://github.com/YourUsername/PiKube-Kubernetes-Cluster' },
+        { icon: 'github', link: 'https://github.com/YourUsername/PiKube-Kubernetes-Cluster' }, // Link to your GitHub repository
         ],
 
+        // **Footer Configuration**
         footer: {
-        message: 'Documentation licensed under MIT.',
-        copyright: 'Copyright © 2024 Amine El Qazoui',
+        message: 'Documentation licensed under MIT.', // Message displayed in the footer
+        copyright: 'Copyright © 2024 Amine El Qazoui', // Copyright information
         },
     },
 })

@@ -9,5 +9,8 @@
   },
   "name": "pikube-kubernetes-service",
   "version": "1.0.0",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "markdown-it-anchor": "^9.2.0"
+  }
 }

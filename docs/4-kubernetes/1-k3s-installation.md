@@ -5,27 +5,30 @@ description: How to install K3s, a lightweight kubernetes distribution, in the P
 last_modified_at: "12-11-2023"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="k3s-installation"
     src="../resources/networking/k3s-logo.svg"
-    width="%"
+    width="60%"
     height="%">
 </p>
 
-- [Node Pre-configuration](#node-pre-configuration)
-- [Configuring a High-Availability K3s Cluster](#configuring-a-high-availability-k3s-cluster)
-  - [Load Balancer setup with HA Proxy](#load-balancer-setup-with-ha-proxy)
-  - [Setting Up Master Nodes](#setting-up-master-nodes)
-  - [Update Master Nodes](#update-master-nodes)
-  - [Setting Up Worker Nodes](#setting-up-worker-nodes)
-  - [Update Worker Nodes](#update-worker-nodes)
-- [Interacting with K3S](#interacting-with-k3s)
-  - [Leveraging kubectl](#leveraging-kubectl)
-  - [Leveraging Helm](#leveraging-helm)
-  - [Leveraging K9S](#leveraging-k9s)
-- [K3S Cluster automatic upgrade](#k3s-cluster-automatic-upgrade)
-- [Resetting the K3S Cluster](#resetting-the-k3s-cluster)
-- [Enable Ansible-driven remote deployment for K3S Cluster](#enable-ansible-driven-remote-deployment-for-k3s-cluster)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
+  - [Node Pre-configuration](#node-pre-configuration)
+  - [Configuring a High-Availability K3s Cluster](#configuring-a-high-availability-k3s-cluster)
+    - [Load Balancer setup with HA Proxy](#load-balancer-setup-with-ha-proxy)
+    - [Setting Up Master Nodes](#setting-up-master-nodes)
+    - [Update Master Nodes](#update-master-nodes)
+    - [Setting Up Worker Nodes](#setting-up-worker-nodes)
+    - [Update Worker Nodes](#update-worker-nodes)
+  - [Interacting with K3S](#interacting-with-k3s)
+    - [Leveraging kubectl](#leveraging-kubectl)
+    - [Leveraging Helm](#leveraging-helm)
+    - [Leveraging K9S](#leveraging-k9s)
+  - [K3S Cluster automatic upgrade](#k3s-cluster-automatic-upgrade)
+  - [Resetting the K3S Cluster](#resetting-the-k3s-cluster)
+  - [Enable Ansible-driven remote deployment for K3S Cluster](#enable-ansible-driven-remote-deployment-for-k3s-cluster) -->
 
 <p align="center">
     <img alt="k3s-installation"

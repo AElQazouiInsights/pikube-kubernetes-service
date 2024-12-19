@@ -5,35 +5,38 @@ description: Deploying HashiCorp Vault as a Secret Manager for PiKube Kubernetes
 last_modified_at: "21-02-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="secret-management-with-hashicorp-vault"
     src="../resources/external-services/harchicorp-vault.jpg"
-    width="35%"
+    width="40%"
     height="%">
 </p>
 
-- [Setting Up HashiCorp Vault: A Step-by-Step Guide](#setting-up-hashicorp-vault-a-step-by-step-guide)
-  - [Creating the Vault User and Group](#creating-the-vault-user-and-group)
-  - [Preparing Vault's Storage and Configuration Directories](#preparing-vaults-storage-and-configuration-directories)
-  - [Installing Vault](#installing-vault)
-- [Implementing SSL Certificates for Vault with a Custom CA or Cloudflare using Let's Encrypt](#implementing-ssl-certificates-for-vault-with-a-custom-ca-or-cloudflare-using-lets-encrypt)
-  - [Custom CA](#custom-ca)
-  - [Cloudflare using Let's Encrypt](#cloudflare-using-lets-encrypt)
-- [Configuring HashiCorp Vault with a Custom Configuration and Systemd Service](#configuring-hashicorp-vault-with-a-custom-configuration-and-systemd-service)
-  - [Create vault config file](#create-vault-config-file)
-  - [Create systemd service for Vault](#create-systemd-service-for-vault)
-- [Streamlining Vault Initialization and Automatic Unseal](#streamlining-vault-initialization-and-automatic-unseal)
-  - [Vault Initialization and Unseal](#vault-initialization-and-unseal)
-    - [Manual Unsealing Process](#manual-unsealing-process)
-    - [Automating Vault unsealing](#automating-vault-unsealing)
-- [Configuring HashiCorp Vault: Setting Up and Managing Secrets](#configuring-hashicorp-vault-setting-up-and-managing-secrets)
-  - [Utilizing the Root Token](#utilizing-the-root-token)
-  - [Interacting with Vault's API](#interacting-with-vaults-api)
-  - [Enabling the Key-Value (KV) Secrets Engine](#enabling-the-key-value-kv-secrets-engine)
-  - [Establishing Vault Policies](#establishing-vault-policies)
-  - [Testing Policy Effectiveness](#testing-policy-effectiveness)
-- [Kubernetes Authentication Method with Vault](#kubernetes-authentication-method-with-vault)
-- [Installing the External Secrets Operator](#installing-the-external-secrets-operator)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
+  - [Setting Up HashiCorp Vault: A Step-by-Step Guide](#setting-up-hashicorp-vault-a-step-by-step-guide)
+    - [Creating the Vault User and Group](#creating-the-vault-user-and-group)
+    - [Preparing Vault's Storage and Configuration Directories](#preparing-vaults-storage-and-configuration-directories)
+    - [Installing Vault](#installing-vault)
+  - [Implementing SSL Certificates for Vault with a Custom CA or Cloudflare using Let's Encrypt](#implementing-ssl-certificates-for-vault-with-a-custom-ca-or-cloudflare-using-lets-encrypt)
+    - [Custom CA](#custom-ca)
+    - [Cloudflare using Let's Encrypt](#cloudflare-using-lets-encrypt)
+  - [Configuring HashiCorp Vault with a Custom Configuration and Systemd Service](#configuring-hashicorp-vault-with-a-custom-configuration-and-systemd-service)
+    - [Create vault config file](#create-vault-config-file)
+    - [Create systemd service for Vault](#create-systemd-service-for-vault)
+  - [Streamlining Vault Initialization and Automatic Unseal](#streamlining-vault-initialization-and-automatic-unseal)
+    - [Vault Initialization and Unseal](#vault-initialization-and-unseal)
+      - [Manual Unsealing Process](#manual-unsealing-process)
+      - [Automating Vault unsealing](#automating-vault-unsealing)
+  - [Configuring HashiCorp Vault: Setting Up and Managing Secrets](#configuring-hashicorp-vault-setting-up-and-managing-secrets)
+    - [Utilizing the Root Token](#utilizing-the-root-token)
+    - [Interacting with Vault's API](#interacting-with-vaults-api)
+    - [Enabling the Key-Value (KV) Secrets Engine](#enabling-the-key-value-kv-secrets-engine)
+    - [Establishing Vault Policies](#establishing-vault-policies)
+    - [Testing Policy Effectiveness](#testing-policy-effectiveness)
+  - [Kubernetes Authentication Method with Vault](#kubernetes-authentication-method-with-vault)
+  - [Installing the External Secrets Operator](#installing-the-external-secrets-operator) -->
 
 The PiKube Kubernetes Cluster utilizes HashiCorp Vault as its primary system for managing secrets. This system ensures the protection of sensitive data, such as user credentials, passwords, and API tokens, through advanced encryption methods.
 
