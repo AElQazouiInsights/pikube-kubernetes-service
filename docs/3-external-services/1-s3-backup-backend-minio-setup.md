@@ -5,6 +5,8 @@ description: How to configure a Single-board computer (Raspberry Pi or Orange Pi
 last_modified_at: "06-10-2023"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="s3-backup-backend-minio-setup"
     src="../resources/external-services/minio.jpg"
@@ -12,9 +14,7 @@ last_modified_at: "06-10-2023"
     height="%">
 </p>
 
-# {{ $frontmatter.title }}
-
-- [{{ $frontmatter.title }}](#-frontmattertitle-)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
   - [Create minio’s UNIX user/group](#create-minios-unix-usergroup)
   - [Create Minio’s S3 storage directory](#create-minios-s3-storage-directory)
   - [Set up Minio’s config directories](#set-up-minios-config-directories)
@@ -26,7 +26,7 @@ last_modified_at: "06-10-2023"
     - [Cloudflare using Let's Encrypt](#cloudflare-using-lets-encrypt)
       - [Enable Automatic Certificate Renewal](#enable-automatic-certificate-renewal)
   - [Minio Configuration Buckets](#minio-configuration-buckets)
-  - [Test a Bucket](#test-a-bucket)
+  - [Test a Bucket](#test-a-bucket) -->
 
 Minio is a robust distributed object storage server, offering flexibility in deployment either as a Kubernetes service or as a standalone setup in a bare-metal environment. For tasks like backing up or restoring a Kubernetes cluster, opting for the bare-metal installation proves advantageous, allowing Minio to function as an external service to the cluster.
 

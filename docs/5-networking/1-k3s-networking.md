@@ -5,11 +5,14 @@ description: An overview of the default networking components in K3S and instruc
 last_modified_at: "28-02-2024"
 ---
 
-- [Default Networking Components in K3S](#default-networking-components-in-k3s)
-- [Configuring Flannel as the CNI](#configuring-flannel-as-the-cni)
-- [CoreDNS Configuration in K3S](#coredns-configuration-in-k3s)
-- [Configuring Traefik as the Ingress Controller](#configuring-traefik-as-the-ingress-controller)
-- [Integrating Klipper-LB as the Load Balancer](#integrating-klipper-lb-as-the-load-balancer)
+# {{ $frontmatter.title }}
+
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
+  - [Default Networking Components in K3S](#default-networking-components-in-k3s)
+  - [Configuring Flannel as the CNI](#configuring-flannel-as-the-cni)
+  - [CoreDNS Configuration in K3S](#coredns-configuration-in-k3s)
+  - [Configuring Traefik as the Ingress Controller](#configuring-traefik-as-the-ingress-controller)
+  - [Integrating Klipper-LB as the Load Balancer](#integrating-klipper-lb-as-the-load-balancer) -->
 
 ## Default Networking Components in K3S
 
@@ -20,7 +23,8 @@ K3S includes a set of pre-configured networking components essential for enablin
 [**`Traefik`**](https://traefik.io/): An ingress controller that manages external access to services within the cluster.
 - [**`Klipper Load Balancer`**](https://github.com/k3s-io/klipper-lb): An internal load balancer for distributing traffic to services.
 
-<a id="configuring-flannel-as-the-cni"></a>
+> [!TIP]
+> Core Kubernetes networking concepts and helpful resources are available in the [**`Further Reading: Kubernetes Networking Fundamentals`**](../13-further-reading/kubernetes-networking-fundamentals.md)
 
 ## Configuring Flannel as the CNI
 
@@ -52,9 +56,8 @@ Each node is allocated a subnet (10.42.X.0/24) from which pods receive their IP 
 
 Traffic between cni0 and flannel.1 is managed through IP routing enabled on each node.
 
+> [!CAUTION] 🔜 WORK IN PROGRESS
 TODO pikube-vxlan-network-with-flannel.drawio
-
-<a id="coredns-configuration-in-k3s"></a>
 
 ## CoreDNS Configuration in K3S
 
@@ -65,18 +68,14 @@ K3S provides options to configure CoreDNS during server installation. CoreDNS is
 | `--cluster-dns` | "10.43.0.10" | Specifies the cluster IP for the CoreDNS service. It should fall within the service CIDR range |
 | `--cluster-domain` | "cluster.local" | Defines the cluster domain |
 
-<a id="configuring-traefik-as-the-ingress-ontroller"></a>
-
 ## Configuring Traefik as the Ingress Controller
 
 [**`Traefik`**](https://traefik.io/) is an HTTP reverse proxy and load balancer designed to ease microservices deployment. It comes embedded with K3S installations and is deployed by default. However, for users seeking more control over Traefik's version and configuration, it's possible to disable the default installation and proceed with a manual setup.
 
-To exclude the embedded Traefik during K3S installation, use the **`--disable traefik`** option. Additional configuration details and advanced options for Traefik are available in the [**`Traefik Ingress Controller Documentation`**](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/documentation/2.7-ingress-controller-traefik.md).
-
-<a id="integrating-klipper-lb-as-the Load Balancer"></a>
+To exclude the embedded Traefik during K3S installation, use the **`--disable traefik`** option. Additional configuration details and advanced options for Traefik are available in the [**`Traefik Ingress Controller Documentation`**](../5-networking/3-ingress-controller-traefik.md).
 
 ## Integrating Klipper-LB as the Load Balancer
 
-By default, K3S deploys the [**`Klipper Load Balancer`**](https://github.com/k3s-io/klipper-lb) (Klipper-LB) upon cluster initialization. In scenarios where Metal LB or another load balancing solution is preferred, it's necessary to disable Klipper-LB.
+By default, K3S deploys the [**`Klipper Load Balancer`**](https://github.com/k3s-io/klipper-lb) upon cluster initialization. In scenarios where other alternative load balancing solutions like `Metal LB` or `Cilium`  is preferred, it's necessary to disable `Klipper-LB`.
 
-Disabling the embedded load balancer can be achieved by configuring all servers in the cluster with the **`--disable servicelb option`**. For those opting to install **`Metal LB`**, guidance and installation instructions are provided in the [**`Metal LB Documentation`**](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/documentation/2.6-load-balancer-metal-lb.md).
+Disabling the embedded load balancer can be achieved by configuring all servers in the cluster with the **`--disable servicelb option`**. For those opting to install **`Metal LB`**, guidance and installation instructions are provided in the [**`Metal LB Documentation`**](../5-networking/2-load-balancer-metal-lb.md).

@@ -9,8 +9,8 @@ last_modified_at: "18-06-2023"
 
 <p align="center">
     <img alt="cluster-gateway"
-    src="../resources/cluster-setup/gateway.jpg"
-    width="25%"
+    src="../resources/cluster-setup/gateway-1.jpg"
+    width="30%"
     height="%">
 </p>
 
@@ -650,7 +650,7 @@ This route needs to be added to the Laptop and the VM running the `pimaster` nod
 
 - Adding a static route in Windows laptop using powershell or cmd:
 
-```dos
+```powershell
 ROUTE -P ADD 10.0.0.0 MASK 255.255.255.0 192.168.0.10 METRIC 1
 ```
 
