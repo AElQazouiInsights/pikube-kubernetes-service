@@ -1,0 +1,50 @@
+---
+# This layout sets the page as the home (landing) page of your site.
+layout: home
+
+hero:
+  # The string shown above `text`. Often the product/brand name.
+  name: PiKube Platform
+  # The main headline text.
+  text: A Comprehensive Documentation & Setup Guide
+  # Optional tagline displayed below the main text.
+  tagline: Deploy, manage, and scale your Pi-based K3s cluster with ease.
+  # Image displayed next to the hero text. Adjust to your logo or a representative image.
+  image:
+    src: /public/pikube-logo-1.webp
+    alt: PiKube
+
+  # Actions are CTA buttons placed in the hero section.
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /1-project-architecture-purpose/1-project-purpose
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/AElQazouiInsights/pikube-kubernetes-service
+
+features:
+  - icon:
+      src: /education.jpg
+    title: Ideal for Educational Purposes
+    details: 
+      Learn the state-of-the-art in hybrid ARM Kubernetes clusters. Explore Kubernetes orchestration, scalability, and service integrations while working on bare metal servers instead of VMs.
+
+  - icon:
+      src: /rubik-cube.jpg
+    title: Orchestration, Scalability, and Observability
+    details:
+      Gain hands-on experience with Kubernetes orchestration and scaling microservices while utilizing a comprehensive monitoring framework that integrates real-time application traces, logs, and metrics into a unified dashboard for easy visualization and analysis.
+
+  - icon:
+      src: /infrastructure-as-code.jpg
+    title: Full Automation with Infrastructure as Code & GitOps
+    details: 
+      Automate cluster deployment and reconfiguration using Cloud-init, Ansible, and ArgoCD/Flux CD. Effortlessly rebuild and reconfigure your entire cluster, enabling rapid iteration and recovery from failure.
+
+  - icon:
+      src: /networking.jpg
+    title: Networking Fundamentals and Cluster Isolation
+    details: 
+      Build a segregated network for your Kubernetes cluster by mastering essential networking components—routers, firewalls, DHCP, DNS, load balancers, and NTP—in a cloud-native environment.
+---

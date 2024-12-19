@@ -1,0 +1,158 @@
+/* .vitepress/theme/index.css */
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Paytone+One&display=swap');
+
+/* Remove or comment out the global font-family to prevent it from affecting the entire site */
+/*
+body {
+    font-family: 'Paytone One', sans-serif;
+}
+*/
+
+/* Scoped Table Font Styling */
+.paytone-font-table {
+    font-family: 'Paytone One', sans-serif;
+}
+
+/* Existing Vertical Text Styling (retain if needed for other tables) */
+.vertical-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-weight: bold;
+    text-align: center;
+    font-family: 'Paytone One', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vertical-cell {
+    height: 50px; /* Adjust this value based on the height of the row */
+}
+
+
+/* Center the table within its container */
+.centered-table table {
+    margin-left: auto;
+    margin-right: auto;
+    width: 50%; /* Adjust as needed */
+    border-collapse: collapse; /* Ensure borders collapse for a cleaner look */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .vertical-text {
+        font-size: 14px; /* Smaller font size for mobile devices */
+    }
+
+    .vertical-cell {
+        height: 40px;
+        width: 30px;
+    }
+}
+
+/* Additional Enhancements */
+
+/* Table Styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+th {
+    background-color: #f4f4f4;
+    text-align: left;
+}
+
+/* Link Styling */
+a {
+    color: #1e90ff; /* DodgerBlue */
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Footer Styling */
+footer {
+    text-align: center;
+    padding: 20px 0;
+    border-top: 1px solid #eaeaea;
+    margin-top: 40px;
+    color: #888;
+}
+
+/* Hero Section Styling */
+.hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 50px 0;
+}
+
+.hero img {
+    max-width: 400px;
+    height: auto;
+}
+
+/* Feature Cards */
+.features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 40px;
+}
+
+.feature {
+    flex: 1 1 30%;
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.feature h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.feature p {
+    color: #666;
+}
+
+/* Adjustments for Code Blocks */
+pre {
+    background-color: #2d2d2d;
+    color: #ccc;
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+code {
+    font-family: 'Fira Code', monospace;
+}
+
+/* Customize Navigation Bar */
+.navbar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #eaeaea;
+}
+
+.navbar a {
+    color: #333333;
+    padding: 10px 15px;
+}
+
+.navbar a:hover {
+    background-color: #f4f4f4;
+    border-radius: 4px;
+}

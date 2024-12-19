@@ -1,0 +1,228 @@
+└── pikube-kubernetes-service/
+    ├── docs/
+    │   ├── .vitepress/
+    │   │   ├── cache/
+    │   │   │   └── deps/
+    │   │   │       ├── _metadata.json
+    │   │   │       ├── chunk-LW4I4DCF.js
+    │   │   │       ├── chunk-LW4I4DCF.js.map
+    │   │   │       ├── package.json
+    │   │   │       ├── vitepress___@vue_devtools-api.js
+    │   │   │       ├── vitepress___@vue_devtools-api.js.map
+    │   │   │       ├── vitepress___@vueuse_core.js
+    │   │   │       ├── vitepress___@vueuse_core.js.map
+    │   │   │       ├── vue.js
+    │   │   │       └── vue.js.map
+    │   │   ├── public/
+    │   │   │   └── pikube-logo.webp
+    │   │   ├── theme/
+    │   │   │   ├── index.css
+    │   │   │   └── index.js
+    │   │   └── config.js
+    │   ├── 1-project-architecture-purpose/
+    │   │   ├── 1-project-purpose.md
+    │   │   └── 2-architecture.md
+    │   ├── 10-backup/
+    │   ├── 11-gitops/
+    │   │   └── 1-gitops-with-argocd.md
+    │   ├── 12-microservices/
+    │   │   └── 2-service-mesh-linkerd.md
+    │   ├── 13-reference-docs/
+    │   │   └── utilities.md
+    │   ├── 2-cluster-setup/
+    │   │   ├── 1-cluster-gateway-configuration.md
+    │   │   └── 2-cluster-nodes-configuration.md
+    │   ├── 3-external-services/
+    │   │   ├── 1-s3-backup-backend-minio-setup.md
+    │   │   └── 2-external-secret-management-vault.md
+    │   ├── 4-kubernetes/
+    │   │   └── 1-k3s-installation.md
+    │   ├── 5-networking/
+    │   │   ├── 1-k3s-networking.md
+    │   │   ├── 2-load-balancer-metal-lb.md
+    │   │   ├── 3-ingress-controller-traefik.md
+    │   │   └── 4-ingress-controller-nginx.md
+    │   ├── 6-certificate-management/
+    │   │   └── 1-tls-certificates-cert-manager.md
+    │   ├── 7-single-sign-on/
+    │   │   └── 1-sso-with-keycloak-and-oauth2-proxy.md
+    │   ├── 8-storage/
+    │   │   ├── 1-distributed-block-storage-longhorn.md
+    │   │   └── 2-s3-object-storage-service-minio.md
+    │   ├── 9-monitoring/
+    │   │   ├── 2-observability-framework.md
+    │   │   ├── 3-centralized-logging-solutions.md
+    │   │   ├── 4-log-aggregation-loki.md
+    │   │   ├── 5-log-analytics-elasticsearch-kibana.md
+    │   │   ├── 6-log-collection-and-distribution-fluentbit-fluentd.md
+    │   │   ├── 7-monitoring-prometheus.md
+    │   │   └── 8-distributed-tracing-tempo.md
+    │   ├── design/
+    │   │   ├── icons/
+    │   │   │   ├── OAuth2-proxy.svg
+    │   │   │   ├── ansible-icon-1.svg
+    │   │   │   ├── ansible.svg
+    │   │   │   ├── argocd.svg
+    │   │   │   ├── asus-rog-logo.svg
+    │   │   │   ├── cert-manager.svg
+    │   │   │   ├── circuit-board-icon-1.jpg
+    │   │   │   ├── circuit-board-icon-2.jpg
+    │   │   │   ├── circuit-board-icon-3.jpg
+    │   │   │   ├── cloud-init.svg
+    │   │   │   ├── cloudflare.svg
+    │   │   │   ├── containerd.svg
+    │   │   │   ├── coredns.svg
+    │   │   │   ├── dhcp.jpg
+    │   │   │   ├── docker-icon-1.svg
+    │   │   │   ├── elastic.svg
+    │   │   │   ├── ethernet-icon-1.jpg
+    │   │   │   ├── external-secrets.svg
+    │   │   │   ├── flannel.svg
+    │   │   │   ├── fluentbit.svg
+    │   │   │   ├── fluentd.svg
+    │   │   │   ├── grafana.svg
+    │   │   │   ├── haproxy.svg
+    │   │   │   ├── helm.svg
+    │   │   │   ├── hp.svg
+    │   │   │   ├── ionos.png
+    │   │   │   ├── k3s.svg
+    │   │   │   ├── k9s.jpg
+    │   │   │   ├── keycloak.svg
+    │   │   │   ├── kibana.svg
+    │   │   │   ├── kubernetes.svg
+    │   │   │   ├── laptop-icon-1.jpg
+    │   │   │   ├── letsencrypt.svg
+    │   │   │   ├── linkerd.svg
+    │   │   │   ├── loki.png
+    │   │   │   ├── longhorn.svg
+    │   │   │   ├── metallb.svg
+    │   │   │   ├── minio-bird-logo.jpg
+    │   │   │   ├── minio.svg
+    │   │   │   ├── network-switch-icon-1.jpg
+    │   │   │   ├── nginx.svg
+    │   │   │   ├── orange-icon-1.jpg
+    │   │   │   ├── orange-pi-logo.jpg
+    │   │   │   ├── prometheus.svg
+    │   │   │   ├── raspberry-icon-1.jpg
+    │   │   │   ├── raspberry.svg
+    │   │   │   ├── restic.png
+    │   │   │   ├── router-icon-1.jpg
+    │   │   │   ├── runcode-ninja-github.jpg
+    │   │   │   ├── tempo.svg
+    │   │   │   ├── traefik.svg
+    │   │   │   ├── ubuntu-icon-1.svg
+    │   │   │   ├── ubuntu-icon-2.svg
+    │   │   │   ├── ubuntu.svg
+    │   │   │   ├── vault.svg
+    │   │   │   ├── velero.svg
+    │   │   │   └── windows-subsystem-for-linux-wsl-microsoft.jpg
+    │   │   ├── pikube-cluster-network-node-architecture.drawio
+    │   │   ├── pikube-cluster-network-node-architecture.drawio.svg
+    │   │   ├── pikube-technical-stacks.drawio
+    │   │   └── pikube-technical-stacks.drawio.svg
+    │   ├── resources/
+    │   │   ├── 0-definitions/
+    │   │   │   └── dictionary.jpg
+    │   │   ├── 2-cluster-setup/
+    │   │   │   ├── gateway.jpg
+    │   │   │   ├── harchicorp-vault1.jpg
+    │   │   │   ├── longhorn-logo.svg
+    │   │   │   ├── nginx_logo.jpg
+    │   │   │   └── picluster-architecture.drawio
+    │   │   ├── certificate-management/
+    │   │   │   └── cert-manager.svg
+    │   │   ├── cluster-setup/
+    │   │   │   └── gateway.jpg
+    │   │   ├── external-services/
+    │   │   │   ├── external-secrets-operator-logo.jpg
+    │   │   │   ├── four.svg
+    │   │   │   ├── harchicorp-vault.jpg
+    │   │   │   ├── kubernetes-crd.svg
+    │   │   │   ├── kubernetes-pod.svg
+    │   │   │   ├── kubernetes-secret.svg
+    │   │   │   ├── minio.jpg
+    │   │   │   ├── one.svg
+    │   │   │   ├── pikube-secret-manager-external-service.drawio
+    │   │   │   ├── pikube-secret-manager-external-service.drawio.svg
+    │   │   │   ├── three.svg
+    │   │   │   └── two.svg
+    │   │   ├── gitops/
+    │   │   │   ├── argocd.svg
+    │   │   │   ├── cmder.jpg
+    │   │   │   ├── code-file-icon.svg
+    │   │   │   ├── container-registry.svg
+    │   │   │   ├── continuous-integration.jpg
+    │   │   │   ├── file-yaml-color-red-icon.svg
+    │   │   │   ├── git-icon.svg
+    │   │   │   ├── github-actions-icon.svg
+    │   │   │   ├── github-icon.svg
+    │   │   │   ├── helm-icon.svg
+    │   │   │   ├── jenkins-icon.svg
+    │   │   │   ├── kustomize.io.jpg
+    │   │   │   ├── pikube-cluster-cicd-gitops-architecture.drawio
+    │   │   │   ├── pikube-cluster-cicd-gitops-architecture.drawio.svg
+    │   │   │   ├── vscode.svg
+    │   │   │   ├── yaml-file-icon.svg
+    │   │   │   └── yaml.svg
+    │   │   ├── monitoring/
+    │   │   │   ├── elasticsearch-kibana-logo.webp
+    │   │   │   ├── fluentbit.svg
+    │   │   │   ├── fluentd.svg
+    │   │   │   ├── grafana-keycloak-add-mapper.jpg
+    │   │   │   ├── grafana-keycloak-capability-config.jpg
+    │   │   │   ├── grafana-keycloak-client-credentials.jpg
+    │   │   │   ├── grafana-keycloak-client-scopes.jpg
+    │   │   │   ├── grafana-keycloak-configure-a-new-mapper-list.jpg
+    │   │   │   ├── grafana-keycloak-configure-a-new-mapper.jpg
+    │   │   │   ├── grafana-keycloak-general-settings.jpg
+    │   │   │   ├── grafana-keycloak-login-settings.jpg
+    │   │   │   ├── kibana-dataview-configuration.jpg
+    │   │   │   ├── kibana-dataview-creation.jpg
+    │   │   │   ├── kibana-management-menu.jpg
+    │   │   │   ├── logging-in-kubernetes-efk-vs-plg-stack.svg
+    │   │   │   ├── loki-architecture-components.svg
+    │   │   │   ├── loki-grafana.jpg
+    │   │   │   ├── prometheus-logo.svg
+    │   │   │   ├── tempo-logo.svg
+    │   │   │   ├── tempo-tracing-architecture.jpg
+    │   │   │   └── tempo-tracing-stack.jpg
+    │   │   ├── networking/
+    │   │   │   ├── control-plane-icon.svg
+    │   │   │   ├── etcd-icon.svg
+    │   │   │   ├── how-k3s-works.svg
+    │   │   │   ├── k-proxy-icon.svg
+    │   │   │   ├── k3s-high-availability.drawio
+    │   │   │   ├── k3s-high-availability.drawio.svg
+    │   │   │   ├── k3s-logo.svg
+    │   │   │   ├── k3s-networking.webp
+    │   │   │   ├── kubelet-icon.svg
+    │   │   │   ├── linkerd-logo.svg
+    │   │   │   ├── metal-lb-logo.svg
+    │   │   │   ├── nginx-logo.svg
+    │   │   │   ├── pikube-kubernetes-service.webp
+    │   │   │   └── traefik-logo.jpg
+    │   │   ├── single-sign-on/
+    │   │   │   ├── keyclaok-general-settings.jpg
+    │   │   │   ├── keycloak-add-mapper.jpg
+    │   │   │   ├── keycloak-capability-config.jpg
+    │   │   │   ├── keycloak-configure-a-new-mapper-list.jpg
+    │   │   │   ├── keycloak-configure-a-new-mapper.jpg
+    │   │   │   ├── keycloak-login-settings.jpg
+    │   │   │   ├── keycloak-logo.jpg
+    │   │   │   ├── keycloak-oauth2-proxy-client-secret.jpg
+    │   │   │   ├── keycloak-oauth2-proxy-dedicated.jpg
+    │   │   │   └── oauth2-proxy.svg
+    │   │   └── storage/
+    │   │       ├── longhorn-architecture.jpg
+    │   │       ├── longhorn-logo.svg
+    │   │       ├── longhorn-ui-volume-details.jpg
+    │   │       ├── longhorn-ui-volume.jpg
+    │   │       ├── minio-bird-logo.jpg
+    │   │       └── minio-logo.jpg
+    │   ├── 0-definitions.md
+    │   ├── conf_base.yml
+    │   ├── index.md
+    │   ├── run-Z-get-folder-structure.py
+    │   └── tree_structure.txt
+    ├── package-lock.json
+    └── package.json
