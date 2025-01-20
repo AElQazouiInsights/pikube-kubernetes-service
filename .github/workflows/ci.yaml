@@ -2,6 +2,11 @@
 
 name: Deploy VitePress to GitHub Pages
 
+# Grant write permissions to contents and pages
+permissions:
+  contents: write
+  pages: write
+  
 on:
   push:
     branches:
