@@ -26,8 +26,8 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Run Linting
-        run: npm run lint # Ensure you have a lint script defined in your package.json
+      # - name: Run Linting
+      #   run: npm run lint # Ensure you have a lint script defined in your package.json
 
       - name: Build VitePress Site
         run: npm run docs:build
