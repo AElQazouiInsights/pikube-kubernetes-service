@@ -5,6 +5,8 @@ description: How to configure Ingress Contoller based on NGINX in PiKube Kuberne
 last_modified_at: "17-12-2023"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="nginx"
     src="../resources/networking/nginx-logo.svg"
@@ -12,7 +14,7 @@ last_modified_at: "17-12-2023"
     height="%">
 </p>
 
-- [NGINX Installation](#nginx-installation)
+<!-- - [NGINX Installation](#nginx-installation)
   - [Understanding the **`nginx-values.yaml`** Configuration File](#understanding-the-nginx-valuesyaml-configuration-file)
     - [📢 LoadBalancer IP Configuration](#-loadbalancer-ip-configuration)
     - [📢 Enabling Prometheus Metrics](#-enabling-prometheus-metrics)
@@ -20,7 +22,7 @@ last_modified_at: "17-12-2023"
     - [📢 Enabling Ingress Snippet Annotations](#-enabling-ingress-snippet-annotations)
 - [Setting Up the NGINX ingress](#setting-up-the-nginx-ingress)
   - [Enable HTTP to HTTPS Redirect](#enable-http-to-https-redirect)
-  - [Configure HTTP Basic Authentication (Optional)](#configure-http-basic-authentication-optional)
+  - [Configure HTTP Basic Authentication (Optional)](#configure-http-basic-authentication-optional) -->
 
 For managing incoming HTTP/HTTPS traffic to services exposed in a K3S cluster, an Ingress Controller is needed. While K3S typically includes Traefik as its default Ingress Controller, NGINX can be used as an alternative. NGINX Ingress Controller serves as a reverse proxy and load balancer within Kubernetes.
 

@@ -14,7 +14,7 @@ last_modified_at: "09-12-2024"
     height="%">
 </p>
 
-- [{{ $frontmatter.title }}](#-frontmattertitle-)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
   - [About Prometheus Operator](#about-prometheus-operator)
   - [Kube-Prometheus Stack Installation via Helm Chart](#kube-prometheus-stack-installation-via-helm-chart)
   - [Configuring Ingress Resources for Accessing Monitoring Services](#configuring-ingress-resources-for-accessing-monitoring-services)
@@ -43,7 +43,7 @@ last_modified_at: "09-12-2024"
     - [Monitoring Minio](#monitoring-minio)
       - [Minio Grafana Dashboard](#minio-grafana-dashboard)
     - [Elasticsearch Monitoring](#elasticsearch-monitoring)
-      - [Elasticsearch Grafana Dashboard](#elasticsearch-grafana-dashboard)
+      - [Elasticsearch Grafana Dashboard](#elasticsearch-grafana-dashboard) -->
 
 The installation of a **`Prometheus`** stack for Kubernetes can be efficiently conducted using the [**`kube-prometheus`**](https://github.com/prometheus-operator/kube-prometheus) project, which is maintained by the community.
 

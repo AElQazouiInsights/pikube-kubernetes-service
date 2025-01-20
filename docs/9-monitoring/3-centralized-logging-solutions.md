@@ -6,6 +6,8 @@ description: Deployment guide for centralized logging solutions in PiKube Kubern
 last_modified_at: "03-03-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="service-mesh-with-linkerd"
     src="../resources/monitoring/logging-in-kubernetes-efk-vs-plg-stack.svg"
@@ -13,15 +15,16 @@ last_modified_at: "03-03-2024"
     height="%">
 </p>
 
-- [Overview of Centralized Logging Solutions](#overview-of-centralized-logging-solutions)
-- [Log Collection in Kubernetes Clusters](#log-collection-in-kubernetes-clusters)
-  - [Collecting Container Logs](#collecting-container-logs)
-  - [Kubernetes System Logs](#kubernetes-system-logs)
-  - [Operating System Logs](#operating-system-logs)
-- [Architectures for Log Collection, Aggregation, and Distribution](#architectures-for-log-collection-aggregation-and-distribution)
-  - [Forwarder-Only Architecture](#forwarder-only-architecture)
-  - [Forwarder-Aggregator Architecture](#forwarder-aggregator-architecture)
-- [Installation Guide for Logging Solutions](#installation-guide-for-logging-solutions)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
+  - [Overview of Centralized Logging Solutions](#overview-of-centralized-logging-solutions)
+  - [Log Collection in Kubernetes Clusters](#log-collection-in-kubernetes-clusters)
+    - [Collecting Container Logs](#collecting-container-logs)
+    - [Kubernetes System Logs](#kubernetes-system-logs)
+    - [Operating System Logs](#operating-system-logs)
+  - [Architectures for Log Collection, Aggregation, and Distribution](#architectures-for-log-collection-aggregation-and-distribution)
+    - [Forwarder-Only Architecture](#forwarder-only-architecture)
+    - [Forwarder-Aggregator Architecture](#forwarder-aggregator-architecture)
+  - [Installation Guide for Logging Solutions](#installation-guide-for-logging-solutions) -->
 
 ## Overview of Centralized Logging Solutions
 

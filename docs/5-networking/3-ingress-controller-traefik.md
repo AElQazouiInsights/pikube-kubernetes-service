@@ -5,6 +5,8 @@ description: How to configure Ingress Contoller based on Traefik in PiKube Kuber
 last_modified_at: "17-12-2023"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="traefik-proxy"
     src="../resources/networking/traefik-logo.jpg"
@@ -12,7 +14,7 @@ last_modified_at: "17-12-2023"
     height="%">
 </p>
 
-- [Traefik Installation](#traefik-installation)
+<!-- - [Traefik Installation](#traefik-installation)
   - [Understanding the **`traefik-values.yaml`** Configuration File](#understanding-the-traefik-valuesyaml-configuration-file)
     - [📢 Helm Chart Configuration: Enabling Prometheus Metrics](#-helm-chart-configuration-enabling-prometheus-metrics)
     - [📢 Allocating a Static IP from the LoadBalancer Pool for Ingress Services](#-allocating-a-static-ip-from-the-loadbalancer-pool-for-ingress-services)
@@ -25,7 +27,7 @@ last_modified_at: "17-12-2023"
   - [Creating the Traefik Dashboard Service](#creating-the-traefik-dashboard-service)
   - [Creating TLS Certificate for Traefik](#creating-tls-certificate-for-traefik)
   - [Creating HTTPS Ingress for Dashboard Access](#creating-https-ingress-for-dashboard-access)
-  - [HTTP to HTTPS Redirection Ingress](#http-to-https-redirection-ingress)
+  - [HTTP to HTTPS Redirection Ingress](#http-to-https-redirection-ingress) -->
 
 For handling all incoming HTTP/HTTPS traffic to exposed services in K3S, an **`Ingress Controller`** is essential. [**`Traefik`**](https://doc.traefik.io/traefik/), a Kubernetes-compliant Ingress Controller, typically comes pre-installed with K3S. As a modern HTTP reverse proxy and load balancer, **`Traefik`** facilitates the deployment and management of microservices, streamlining networking complexities associated with application deployment and operation.
 

@@ -5,6 +5,8 @@ description: Deployment guide for Elasticsearch and Kibana within a Raspberry Pi
 last_modified_at: "11-12-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="Log Analytics with Elasticsearch and Kibana"
     src="../resources/monitoring/elasticsearch-kibana-logo.webp"
@@ -12,14 +14,15 @@ last_modified_at: "11-12-2024"
     height="%">
 </p>
 
-- [Installing the ECK Operator](#installing-the-eck-operator)
-  - [Deploying Elasticsearch](#deploying-elasticsearch)
-  - [Configuring Authentication for Elasticsearch](#configuring-authentication-for-elasticsearch)
-  - [Accessing Elasticsearch Externally](#accessing-elasticsearch-externally)
-- [Setting Up Kibana on Kubernetes](#setting-up-kibana-on-kubernetes)
-  - [Exposing Kibana Externally](#exposing-kibana-externally)
-  - [Configuring DataView in Kibana for Elasticsearch Data Access](#configuring-dataview-in-kibana-for-elasticsearch-data-access)
-- [Installing Prometheus Elasticsearch Exporter](#installing-prometheus-elasticsearch-exporter)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
+  - [Installing the ECK Operator](#installing-the-eck-operator)
+    - [Deploying Elasticsearch](#deploying-elasticsearch)
+    - [Configuring Authentication for Elasticsearch](#configuring-authentication-for-elasticsearch)
+    - [Accessing Elasticsearch Externally](#accessing-elasticsearch-externally)
+  - [Setting Up Kibana on Kubernetes](#setting-up-kibana-on-kubernetes)
+    - [Exposing Kibana Externally](#exposing-kibana-externally)
+    - [Configuring DataView in Kibana for Elasticsearch Data Access](#configuring-dataview-in-kibana-for-elasticsearch-data-access)
+  - [Installing Prometheus Elasticsearch Exporter](#installing-prometheus-elasticsearch-exporter) -->
 
 The [**`Elastic Cloud on Kubernetes (ECK)`**](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html) project simplifies the deployment and management of the Elastic Stack on Kubernetes clusters. ECK leverages the Kubernetes operator pattern to automate the provisioning, management, and orchestration of the Elastic Stack components, including Elasticsearch, Kibana, APM Server, Enterprise Search, Beats, Elastic Agent, and Elastic Maps Server.
 

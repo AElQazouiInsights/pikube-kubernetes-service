@@ -15,7 +15,7 @@ export default defineConfig({
       // **Theme Configuration**
     themeConfig: {
         // **Logo Configuration**
-        logo: '/pie.svg', // Path to your site's logo image. Ensure 'pie.svg' is in the 'public' directory
+        logo: '/pi.svg', // Path to your site's logo image. Ensure 'pie.svg' is in the 'public' directory
         outline: 'deep', // This will ensure that the TOC includes deeper levels of headings, creating a nested structure
         // **Navigation Bar**
         nav: [
@@ -27,13 +27,20 @@ export default defineConfig({
         sidebar: {
         '/': [ // Applies to all routes starting with '/'
             {
-            text: 'Project Architecture & Purpose', // Section title in the sidebar
-            collapsed: true, // Whether the section is collapsed by default
+            text: 'Project Architecture & Purpose',
+            collapsed: true,
             items: [
                 { text: 'Project Purpose', link: '/1-project-architecture-purpose/1-project-purpose' },
                 { text: 'Architecture', link: '/1-project-architecture-purpose/2-architecture' },
             ],
             },
+            {
+                text: 'Automation',
+                collapsed: true,
+                items: [
+                    { text: 'Ansible Control Node', link: '/14-automation/1-ansible-control-node' },
+                ],
+                },
             {
             text: 'Cluster Setup',
             collapsed: true,
@@ -122,7 +129,9 @@ export default defineConfig({
             text: 'Microservices',
             collapsed: true,
             items: [
+                { text: 'Databases', link: '/12-microservices/1-databases' },
                 { text: 'Service Mesh (Linkerd)', link: '/12-microservices/2-service-mesh-linkerd' },
+                { text: 'Kafka', link: '/12-microservices/4-kafka' }
             ],
             },
             {

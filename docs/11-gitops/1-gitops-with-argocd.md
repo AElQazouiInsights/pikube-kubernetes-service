@@ -5,6 +5,8 @@ description: Implementing GitOps principles for Pi cluster management using Argo
 last_modified_at: "07-02-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="prometheus"
     src="../resources/gitops/argocd.svg"
