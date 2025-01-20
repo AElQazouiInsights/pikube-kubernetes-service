@@ -5,6 +5,8 @@ description: Deploying Kafka in a Kubernetes cluster using the Strimzi Kafka Ope
 last_modified_at: "13-01-2025"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="kafka"
     src="../resources/microservices/kafka.svg"
