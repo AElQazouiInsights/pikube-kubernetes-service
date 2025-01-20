@@ -26,11 +26,14 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # - name: Run Linting
-      #   run: npm run lint # Ensure you have a lint script defined in your package.json
+      - name: Verify VitePress Installation
+        run: ls -l ./node_modules/.bin/vitepress
+
+      - name: Make VitePress executable
+        run: chmod +x ./node_modules/.bin/vitepress || echo "VitePress already executable"
 
       - name: Build VitePress Site
-        run: npm run docs:build
+        run: npx vitepress build docs
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
