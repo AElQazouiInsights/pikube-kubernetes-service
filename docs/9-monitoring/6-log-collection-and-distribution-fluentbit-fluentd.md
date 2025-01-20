@@ -5,6 +5,8 @@ description: Instructions for deploying log collection, aggregation, and distrib
 last_modified_at: "11-12-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 <div style="display: flex; justify-content: center; align-items: center;">
     <div style="flex: 0 0 auto; margin-right: 60px;">
         <img src="/resources/monitoring/fluentbit.svg" alt="Fluentbit" width="400" />
@@ -14,26 +16,27 @@ last_modified_at: "11-12-2024"
     </div>
 </div>
 
-- [Fluentd Aggregator Installation](#fluentd-aggregator-installation)
-  - [Customized Fluentd Image](#customized-fluentd-image)
-  - [Deploying Fluentd in K3S](#deploying-fluentd-in-k3s)
-- [Fluentd Helm Chart Configuration Details](#fluentd-helm-chart-configuration-details)
-  - [Deployment Configuration](#deployment-configuration)
-  - [Environment Variables for Fluentd Container](#environment-variables-for-fluentd-container)
-  - [Volume Mounts and Additional Volumes](#volume-mounts-and-additional-volumes)
-  - [Service and Additional Configurations](#service-and-additional-configurations)
-  - [Fluentd Configuration Files](#fluentd-configuration-files)
-  - [Fluentd Configuration Files in ConfigMaps](#fluentd-configuration-files-in-configmaps)
-    - [Sources Configuration (`01_sources.conf`)](#sources-configuration-01_sourcesconf)
-    - [Filters Configuration (`02_filters.conf`)](#filters-configuration-02_filtersconf)
-    - [Dispatch Configuration (`03_dispatch.conf`)](#dispatch-configuration-03_dispatchconf)
-    - [Outputs Configuration (`04_outputs.conf`)](#outputs-configuration-04_outputsconf)
-  - [Elasticsearch Specific Configuration](#elasticsearch-specific-configuration)
-- [Fluentbit Forwarder Installation](#fluentbit-forwarder-installation)
-  - [FluentBit Forwarder-Only Architecture](#fluentbit-forwarder-only-architecture)
-- [Logs from External Nodes](#logs-from-external-nodes)
-  - [Automated Installation with Ansible](#automated-installation-with-ansible)
-  - [Manual FluentBit Configuration for External Nodes](#manual-fluentbit-configuration-for-external-nodes)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
+  - [Fluentd Aggregator Installation](#fluentd-aggregator-installation)
+    - [Customized Fluentd Image](#customized-fluentd-image)
+    - [Deploying Fluentd in K3S](#deploying-fluentd-in-k3s)
+  - [Fluentd Helm Chart Configuration Details](#fluentd-helm-chart-configuration-details)
+    - [Deployment Configuration](#deployment-configuration)
+    - [Environment Variables for Fluentd Container](#environment-variables-for-fluentd-container)
+    - [Volume Mounts and Additional Volumes](#volume-mounts-and-additional-volumes)
+    - [Service and Additional Configurations](#service-and-additional-configurations)
+    - [Fluentd Configuration Files](#fluentd-configuration-files)
+    - [Fluentd Configuration Files in ConfigMaps](#fluentd-configuration-files-in-configmaps)
+      - [Sources Configuration (`01_sources.conf`)](#sources-configuration-01_sourcesconf)
+      - [Filters Configuration (`02_filters.conf`)](#filters-configuration-02_filtersconf)
+      - [Dispatch Configuration (`03_dispatch.conf`)](#dispatch-configuration-03_dispatchconf)
+      - [Outputs Configuration (`04_outputs.conf`)](#outputs-configuration-04_outputsconf)
+    - [Elasticsearch Specific Configuration](#elasticsearch-specific-configuration)
+  - [Fluentbit Forwarder Installation](#fluentbit-forwarder-installation)
+    - [FluentBit Forwarder-Only Architecture](#fluentbit-forwarder-only-architecture)
+  - [Logs from External Nodes](#logs-from-external-nodes)
+    - [Automated Installation with Ansible](#automated-installation-with-ansible)
+    - [Manual FluentBit Configuration for External Nodes](#manual-fluentbit-configuration-for-external-nodes) -->
 
 In this documentation, we will implement a Forwarder/Aggregator logging architecture within the Kubernetes cluster using Fluentbit and Fluentd.
 

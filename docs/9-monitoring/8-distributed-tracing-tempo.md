@@ -5,6 +5,8 @@ description: How to Implement a Distributed Tracing Solution Using Grafana Tempo
 last_modified_at: "16-12-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="tempo"
     src="../resources/monitoring/tempo-logo.svg"
@@ -12,7 +14,7 @@ last_modified_at: "16-12-2024"
     height="%">
 </p>
 
-- [Tempo Architecture](#tempo-architecture)
+<!-- - [Tempo Architecture](#tempo-architecture)
 - [Configuring the S3 Minio Server](#configuring-the-s3-minio-server)
   - [Creating the Minio User and Bucket](#creating-the-minio-user-and-bucket)
   - [Tempo Installation](#tempo-installation)
@@ -25,7 +27,7 @@ last_modified_at: "16-12-2024"
   - [Activating Tracing with W3C Protocol](#activating-tracing-with-w3c-protocol)
 - [Grafana Configuration for Tempo](#grafana-configuration-for-tempo)
 - [Loki and Tempo Integration](#loki-and-tempo-integration)
-- [Testing with Emojivoto application](#testing-with-emojivoto-application)
+- [Testing with Emojivoto application](#testing-with-emojivoto-application) -->
 
 This section details how to set up a distributed tracing solution on your Kubernetes cluster using [**`Grafana Tempo`**](https://grafana.com/oss/tempo/) as the tracing backend, with Grafana as the frontend.
 

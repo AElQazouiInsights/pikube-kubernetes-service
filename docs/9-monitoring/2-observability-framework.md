@@ -5,10 +5,13 @@ description: Comprehensive observability framework tailored for PiKube Kubernete
 last_modified_at: "03-03-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 ## Observability Framework
 
 This document outlines an integrated observability and monitoring framework specifically designed for PiKube Kubernetes Service:
 
+> [!CAUTION] 🔜 WORK IN PROGRESS
 TODO pikube-observability-architecture.drawio
 
 The framework facilitates comprehensive monitoring of application **`traces`**, **`logs`**, and **`metrics`**, offering a unified dashboard that consolidates all application data for easy **`visualization`** and **`analysis`**.
@@ -22,6 +25,7 @@ The observability framework incorporates the following key components:
 
 Additionally, the framework includes a log analytics component built on [**`Elasticsearch`**](https://www.elastic.co/elasticsearch) and [**`Kibana`**](https://www.elastic.co/fr/kibana), enhancing its logging capabilities.
 
+> [!CAUTION] 🔜 WORK IN PROGRESS
 TODO pikube-logs-observability-analytics.drawio
 
 A unified log collection and distribution layer, implemented using Fluent Bit/Fluentd, channels logs to both the **`Log Analytics platform, Elasticsearch`** and the **`Log Monitoring platform, Loki`**.

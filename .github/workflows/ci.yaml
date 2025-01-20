@@ -1,0 +1,40 @@
+# .github/workflows/ci.yaml
+
+name: Deploy VitePress to GitHub Pages
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Linting
+        run: npm run lint # Ensure you have a lint script defined in your package.json
+
+      - name: Build VitePress Site
+        run: npm run docs:build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/.vitepress/dist
+          publish_branch: gh-pages

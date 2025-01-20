@@ -3,7 +3,6 @@
 layout: home
 
 hero:
-  # The string shown above `text`. Often the product/brand name.
   name: PiKube Platform
   # The main headline text.
   text: A Comprehensive Documentation & Setup Guide

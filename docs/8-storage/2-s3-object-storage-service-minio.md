@@ -5,6 +5,8 @@ description: How to deploy a Minio S3 object storage service in PiKube Kubernete
 last_modified_at: "22-12-2023"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="minio"
     src="../resources/storage//minio-bird-logo.jpg"
@@ -17,8 +19,9 @@ last_modified_at: "22-12-2023"
     height="%">
 </p>
 
-- [Minio installation](#minio-installation)
-- [Configuring PiKubeS3Cluster Alias for Kubernetes](#configuring-pikubes3cluster-alias-for-kubernetes)
+<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
+  - [Minio installation](#minio-installation)
+  - [Configuring PiKubeS3Cluster Alias for Kubernetes](#configuring-pikubes3cluster-alias-for-kubernetes) -->
 
 **`Minio`** will be implemented as a Kubernetes service, serving as an **`Object Store`** with an **`S3-compatible backend`** for various Kubernetes services like **`Loki`**, **`Tempo`**, and others.
 

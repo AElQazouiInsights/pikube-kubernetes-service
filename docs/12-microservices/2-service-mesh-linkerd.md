@@ -5,6 +5,8 @@ description: Service-mesh architecture using Linkerd to enhance observability, m
 last_modified_at: "26-02-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="service-mesh-with-linkerd"
     src="../resources/networking/linkerd-logo.svg"
@@ -12,7 +14,7 @@ last_modified_at: "26-02-2024"
     height="%">
 </p>
 
-- [Introduction to Service Mesh](#introduction-to-service-mesh)
+<!-- - [Introduction to Service Mesh](#introduction-to-service-mesh)
 - [Selecting Linkerd over Istio](#selecting-linkerd-over-istio)
 - [Overview of Linkerd's Architecture](#overview-of-linkerds-architecture)
 - [Automated mTLS and Integration with Cert-Manager](#automated-mtls-and-integration-with-cert-manager)
@@ -32,7 +34,7 @@ last_modified_at: "26-02-2024"
   - [Linkerd Integration with Velero](#linkerd-integration-with-velero)
 - [Setting Up Ingress with Linkerd](#setting-up-ingress-with-linkerd)
   - [Integrating Traefik with Linkerd](#integrating-traefik-with-linkerd)
-  - [Integrating NGINX Ingress with Linkerd](#integrating-nginx-ingress-with-linkerd)
+  - [Integrating NGINX Ingress with Linkerd](#integrating-nginx-ingress-with-linkerd) -->
 
 ## Introduction to Service Mesh
 

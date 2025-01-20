@@ -1,11 +1,11 @@
 ---
-title: Kubernetes commands
-permalink: /docs/k8s-commands/
+title: Kubernetes Commands and Tools Guide
+permalink: /docs/13-further-reading/utilities
 description: Reference of kubectl/helm commands for our Kuberentes Raspberry Pi Cluster
 last_modified_at: "03-04-2022"
 ---
 
-# Kubernetes Commands and Tools Guide
+# {{ $frontmatter.title }}
 
 ## Pod Management
 
@@ -51,6 +51,7 @@ echo "Force deletion of terminating pods completed."
 ```
 
 Make the script executable and run it:
+
 ```bash
 chmod +x force-delete-terminating-pods.sh
 ./force-delete-terminating-pods.sh
@@ -59,6 +60,7 @@ chmod +x force-delete-terminating-pods.sh
 ### Essential Pod Commands
 
 #### Pod Inspection
+
 ```bash
 # List pods on specific node
 kubectl get pods --all-namespaces -o wide --field-selector spec.nodeName=<node_name>
@@ -71,6 +73,7 @@ kubectl get pods -n <namespace> -w
 ```
 
 #### Pod Logs and Debugging
+
 ```bash
 # Get pod logs
 kubectl logs <pod_name> -n <namespace>
@@ -86,6 +89,7 @@ kubectl logs -f <pod_name> -n <namespace>
 ```
 
 #### Pod Access
+
 ```bash
 # Execute command in pod
 kubectl exec -it <pod_name> -n <namespace> -- /bin/bash
@@ -98,6 +102,7 @@ kubectl cp /local/path <namespace>/<pod_name>:/path/in/pod
 ## Node Management
 
 ### Node Commands
+
 ```bash
 # List node taints
 kubectl describe nodes | grep Taint
@@ -113,6 +118,7 @@ kubectl drain <node_name> --ignore-daemonsets --delete-emptydir-data
 ```
 
 ### Resource Monitoring
+
 ```bash
 # Get node resource usage
 kubectl top nodes
@@ -127,6 +133,7 @@ kubectl top pods -A --sort-by='memory'
 ## Service Management
 
 ### Port Forwarding
+
 ```bash
 # Forward service port
 kubectl port-forward svc/<service-name> -n <namespace> <local-port>:<service-port>
@@ -140,11 +147,13 @@ kubectl port-forward svc/<service-name> -n <namespace> <local-port>:<service-por
 ### Running Temporary Debug Pods
 
 1. Using curl image for network debugging:
+
 ```bash
 kubectl run -it --rm --image=curlimages/curl curly -- sh
 ```
 
 2. Using busybox for general troubleshooting:
+
 ```bash
 kubectl run -it --rm --image=busybox busybox -- sh
 ```
@@ -154,21 +163,25 @@ kubectl run -it --rm --image=busybox busybox -- sh
 To move pods from one node to another:
 
 1. Identify current pod location:
+
 ```bash
 kubectl get pod <pod-name> -n <namespace> -o wide
 ```
 
 2. Cordon the current node:
+
 ```bash
 kubectl cordon <current-node>
 ```
 
 3. Delete the pod (it will be rescheduled):
+
 ```bash
 kubectl delete pod <pod-name> -n <namespace>
 ```
 
 4. Verify new location and uncordon old node:
+
 ```bash
 kubectl get pod <pod-name> -n <namespace> -o wide
 kubectl uncordon <current-node>
@@ -181,6 +194,7 @@ kubectl uncordon <current-node>
 Helm's post-rendering feature allows modification of manifests before deployment. Here's how to use it with Kustomize:
 
 1. Create a kustomize wrapper script:
+
 ```bash
 #!/bin/bash
 cat <&0 > all.yaml

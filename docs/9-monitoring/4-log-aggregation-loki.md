@@ -5,6 +5,8 @@ description: How to deploy Grafana Loki.
 last_modified_at: "30-01-2024"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="loki"
     src="../resources/monitoring/loki-grafana.jpg"

@@ -5,6 +5,8 @@ description: How to deploy a centralized TLS certificates management solution ba
 last_modified_at: "14-11-2023"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="cert-manager"
     src="../resources/certificate-management/cert-manager.svg"
