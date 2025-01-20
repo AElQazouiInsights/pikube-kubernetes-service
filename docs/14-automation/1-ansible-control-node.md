@@ -5,6 +5,15 @@ description: Configuring an Ansible Control Node for our Raspberry Pi Kubernetes
 last_modified_at: "14-01-2025"
 ---
 
+# {{ $frontmatter.title }}
+
+<p align="center">
+    <img alt="ansible"
+    src="../resources/automation/ansible.svg"
+    width="60%"
+    height="%">
+</p>
+
 This guide explains how to configure an Ansible Control Node for automating the setup and management of our PiKube Kubernetes Service. The control node, named `pikube-controller`, orchestrates configuration tasks using Ansible. You can set up the control node on a `Linux server`, a `VirtualBox VM`, or directly on your Windows laptop using `Windows Subsystem for Linux (WSL)`.
 
 ## Choosing Your Control Node Environment

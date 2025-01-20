@@ -5,6 +5,8 @@ description: How to deploy databases in Kubernetes cluster. Leveraging cloud-nat
 last_modified_at: "13-01-2025"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="cloud-native-db"
     src="../resources/microservices/cloud-native-db.svg"
