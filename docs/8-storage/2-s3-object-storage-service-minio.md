@@ -19,10 +19,6 @@ last_modified_at: "22-12-2023"
     height="%">
 </p>
 
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [Minio installation](#minio-installation)
-  - [Configuring PiKubeS3Cluster Alias for Kubernetes](#configuring-pikubes3cluster-alias-for-kubernetes) -->
-
 **`Minio`** will be implemented as a Kubernetes service, serving as an **`Object Store`** with an **`S3-compatible backend`** for various Kubernetes services like **`Loki`**, **`Tempo`**, and others.
 
 The [**`official guide`**](https://min.io/docs/minio/kubernetes/upstream/index.html) for installing Minio on Kubernetes recommends using the Minio Operator to set up and manage a multi-tenant S3 cloud service.

@@ -52,8 +52,9 @@ CloudNative-PG offers multiple installation methods. This guide outlines the Hel
 
 ```bash
 helm repo add cnpg https://cloudnative-pg.github.io/charts
-Update Helm Repositories:
 ```
+
+- Update Helm Repositories:
 
 ```bash
 helm repo update

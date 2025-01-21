@@ -687,7 +687,7 @@ source ~/.bashrc
 - Create a new environment named `ansible` with Python 3.12
 
 ```bash
-micromamba create -n ansible-env python=3.12
+micromamba create -n ansible python=3.12
 ```
 
 - Test the environement
