@@ -131,7 +131,8 @@ export default defineConfig({
             items: [
                 { text: 'Databases', link: '/12-microservices/1-databases' },
                 { text: 'Service Mesh (Linkerd)', link: '/12-microservices/2-service-mesh-linkerd' },
-                { text: 'Kafka', link: '/12-microservices/4-kafka' }
+                { text: 'Kafka', link: '/12-microservices/4-kafka' },
+                { text: 'Hasura Finance Application', link: '/12-microservices/5-finance-app-hasura' }
             ],
             },
             {

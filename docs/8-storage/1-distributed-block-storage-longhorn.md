@@ -14,14 +14,6 @@ last_modified_at: "20-12-2023"
     height="%">
 </p>
 
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [Implementation Using Internet Small Computer System Interface (iSCSI)](#implementation-using-internet-small-computer-system-interface-iscsi)
-  - [Addressing Longhorn Issues with Multipath](#addressing-longhorn-issues-with-multipath)
-  - [Longhorn Installation Procedure Using Helm](#longhorn-installation-procedure-using-helm)
-  - [Configuring Access to Longhorn UI with Traefik Ingress](#configuring-access-to-longhorn-ui-with-traefik-ingress)
-  - [Testing Longhorn Storage](#testing-longhorn-storage)
-  - [Configuring Longhorn as the Default Kubernetes StorageClass](#configuring-longhorn-as-the-default-kubernetes-storageclass) -->
-
 K3s, by default, uses a Local Path Provisioner for PersistentVolumeClaims (PVCs), which relies on storage local to the host node. This approach limits data access to the specific node where the pod is running. To overcome this limitation, a distributed block storage system like `Longhorn` is essential. `Longhorn` decouples storage from pods, allowing PVCs to be mounted on any pod across the cluster, irrespective of node location.
 
 **Longhorn as a distributed block storage solution**:

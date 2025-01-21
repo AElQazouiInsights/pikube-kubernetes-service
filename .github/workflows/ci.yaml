@@ -1,12 +1,12 @@
-# .github/workflows/ci.yaml
-
+# Workflow name that appears in GitHub Actions UI
 name: Deploy VitePress to GitHub Pages
 
-# Grant write permissions to contents and pages
+# Required permissions for GitHub Pages deployment
 permissions:
-  contents: write
-  pages: write
-  
+  contents: write  # Allows writing to repository contents
+  pages: write    # Allows managing GitHub Pages settings
+
+# Trigger workflow on pushes to production branch
 on:
   push:
     branches:
@@ -17,32 +17,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Check out repository code
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Full git history for better version handling
 
+      # Step 2: Set up Node.js environment
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 'lts/*'
-          cache: 'npm'
+          node-version: 'lts/*'  # Use latest LTS version of Node.js
+          cache: 'npm'          # Enable npm dependency caching
 
+      # Step 3: Install project dependencies
       - name: Install Dependencies
         run: npm install
 
+      # Step 4: Verify VitePress is correctly installed
       - name: Verify VitePress Installation
         run: ls -l ./node_modules/.bin/vitepress
 
+      # Step 5: Ensure VitePress binary is executable
       - name: Make VitePress executable
         run: chmod +x ./node_modules/.bin/vitepress || echo "VitePress already executable"
 
+      # Step 6: Build the static site
       - name: Build VitePress Site
         run: npx vitepress build docs
 
+      # Step 7: Deploy built site to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/.vitepress/dist
-          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}  # Auto-generated token for authentication
+          publish_dir: ./docs/.vitepress/dist       # Directory containing built site
+          publish_branch: gh-pages                  # Branch where site will be deployed
