@@ -5,9 +5,11 @@ description: An end-to-end example deploying Hasura, CloudNative PG, and a yfina
 last_modified_at: "21-01-2025"
 ---
 
+# {{ $frontmatter.title }}
+
 <p align="center">
     <img alt="kafka"
-    src="../resources/microservices/kafka.svg"
+    src="../resources/microservices/hasura.svg"
     width="50%"
     height="%">
 </p>
