@@ -101,6 +101,7 @@ export default defineConfig({
             text: 'Monitoring & Observability',
             collapsed: true,
             items: [
+                { text: 'Metrics Server', link: '/9-monitoring/1-metrics-server' },
                 { text: 'Observability Framework', link: '/9-monitoring/2-observability-framework' },
                 { text: 'Centralized Logging Solutions', link: '/9-monitoring/3-centralized-logging-solutions' },
                 { text: 'Log Aggregation (Loki)', link: '/9-monitoring/4-log-aggregation-loki' },

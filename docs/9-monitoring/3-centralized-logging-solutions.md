@@ -15,17 +15,6 @@ last_modified_at: "03-03-2024"
     height="%">
 </p>
 
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [Overview of Centralized Logging Solutions](#overview-of-centralized-logging-solutions)
-  - [Log Collection in Kubernetes Clusters](#log-collection-in-kubernetes-clusters)
-    - [Collecting Container Logs](#collecting-container-logs)
-    - [Kubernetes System Logs](#kubernetes-system-logs)
-    - [Operating System Logs](#operating-system-logs)
-  - [Architectures for Log Collection, Aggregation, and Distribution](#architectures-for-log-collection-aggregation-and-distribution)
-    - [Forwarder-Only Architecture](#forwarder-only-architecture)
-    - [Forwarder-Aggregator Architecture](#forwarder-aggregator-architecture)
-  - [Installation Guide for Logging Solutions](#installation-guide-for-logging-solutions) -->
-
 ## Overview of Centralized Logging Solutions
 
 For Kubernetes clusters, two primary logging solutions are available, each serving as a centralized approach for log management:
