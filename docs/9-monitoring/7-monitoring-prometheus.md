@@ -14,37 +14,6 @@ last_modified_at: "09-12-2024"
     height="%">
 </p>
 
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [About Prometheus Operator](#about-prometheus-operator)
-  - [Kube-Prometheus Stack Installation via Helm Chart](#kube-prometheus-stack-installation-via-helm-chart)
-  - [Configuring Ingress Resources for Accessing Monitoring Services](#configuring-ingress-resources-for-accessing-monitoring-services)
-  - [Detailed Breakdown of what been deployed by kube-stack](#detailed-breakdown-of-what-been-deployed-by-kube-stack)
-    - [Prometheus Operator](#prometheus-operator)
-      - [Detailed Breakdown of Prometheus Custom Resource](#detailed-breakdown-of-prometheus-custom-resource)
-      - [Detailed Breakdown of AlertManager Custom Resource](#detailed-breakdown-of-alertmanager-custom-resource)
-      - [Detailed Breakdown of ServiceMonitor Objects](#detailed-breakdown-of-servicemonitor-objects)
-      - [Detailed Breakdown of PrometheusRule Objects](#detailed-breakdown-of-prometheusrule-objects)
-    - [Grafana](#grafana)
-      - [Keycloak Integration: Single Sign-On Configuration](#keycloak-integration-single-sign-on-configuration)
-        - [Keycloak Configuration: Configure Grafana Client](#keycloak-configuration-configure-grafana-client)
-    - [Configuring SSO for Grafana SSO](#configuring-sso-for-grafana-sso)
-    - [Provisioning Grafana Dashboards Automatically](#provisioning-grafana-dashboards-automatically)
-    - [Automatic Provisioning of Grafana DataSources](#automatic-provisioning-of-grafana-datasources)
-    - [Prometheus Node Exporter Deployment](#prometheus-node-exporter-deployment)
-    - [Deployment of Kube State Metrics](#deployment-of-kube-state-metrics)
-  - [Monitoring K3S and Cluster Services](#monitoring-k3s-and-cluster-services)
-    - [K3S Components Monitoring](#k3s-components-monitoring)
-      - [coreDNS Monitoring](#coredns-monitoring)
-      - [Integrate and Modify Grafana Dashboards with K3S](#integrate-and-modify-grafana-dashboards-with-k3s)
-    - [Monitoring Ingress NGINX](#monitoring-ingress-nginx)
-      - [Ingress NGINX Grafana Dashboard](#ingress-nginx-grafana-dashboard)
-    - [Monitoring Longhorn](#monitoring-longhorn)
-      - [Longhorn Grafana Dashboard](#longhorn-grafana-dashboard)
-    - [Monitoring Minio](#monitoring-minio)
-      - [Minio Grafana Dashboard](#minio-grafana-dashboard)
-    - [Elasticsearch Monitoring](#elasticsearch-monitoring)
-      - [Elasticsearch Grafana Dashboard](#elasticsearch-grafana-dashboard) -->
-
 The installation of a **`Prometheus`** stack for Kubernetes can be efficiently conducted using the [**`kube-prometheus`**](https://github.com/prometheus-operator/kube-prometheus) project, which is maintained by the community.
 
 This project aggregates Kubernetes manifests, Grafana dashboards, and Prometheus rules, along with comprehensive documentation and scripts. This collection is designed to facilitate a straightforward operational experience for end-to-end Kubernetes cluster monitoring with Prometheus, leveraging the Prometheus Operator.
@@ -79,11 +48,11 @@ The Prometheus Operator is designed to manage Prometheus and AlertManager deploy
 
 - **`AlertManagerConfig CRD:`** This defines the configuration for AlertManager, enabling the routing of alerts to customized receivers and the establishment of inhibition rules, which control when certain alerts should be suppressed.
 
-📌 **Note**
-
-*For comprehensive details about the design and functionality of the Prometheus Operator and its CRDs, refer to the [**`Prometheus Operator Design Documentation`**](https://prometheus-operator.dev/docs/operator/design/).*
-
-*The specifications for the various CRDs are detailed in the [**`Prometheus Operator API`**](https://prometheus-operator.dev/docs/operator/api/) reference guide, providing in-depth information for advanced configuration and usage.*
+> [!NOTE]
+>
+> For comprehensive details about the design and functionality of the Prometheus Operator and its CRDs, refer to the [**`Prometheus Operator Design Documentation`**](https://prometheus-operator.dev/docs/operator/design/).
+>
+> The specifications for the various CRDs are detailed in the [**`Prometheus Operator API`**](https://prometheus-operator.dev/docs/operator/api/) reference guide, providing in-depth information for advanced configuration and usage.
 
 ## Kube-Prometheus Stack Installation via Helm Chart
 
@@ -271,13 +240,13 @@ https://monitoring.picluster.quantfinancehub.com/prometheus/
 
 https://monitoring.picluster.quantfinancehub.com/alertmanager/
 
-The DNS domain **`monitoring.picluster.quantfinancehub.com`** must be mapped in the cluster DNS server configuration to the external IP of the NGINX Load Balancer service.
+The DNS domain `monitoring.picluster.quantfinancehub.com` must be mapped in the cluster DNS server configuration to the external IP of the NGINX Load Balancer service.
 
 As the backend services for Prometheus, Grafana, and AlertManager don't provide secure communications (HTTP traffic) by default, the Ingress resource will be configured to enforce HTTPS (NGINX TLS endpoint) and redirect all HTTP traffic to HTTPS. Additionally, since Prometheus and AlertManager frontends lack native authentication mechanisms, NGINX HTTP basic authentication will be employed for security.
 
 Ingress NGINX rewrite rules are defined within the Ingress resources.
 
-- Create Ingress Resources Manifest **`prometheus-monitoring-ingress.yaml`**
+- Create Ingress Resources Manifest `prometheus-monitoring-ingress.yaml`
 
 ```yaml
 # Ingress for Grafana
@@ -387,9 +356,9 @@ kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f prometheus-monitoring-i
 
 The kube-stack deployment method efficiently sets up a Prometheus Operator in PiKube Kubernetes cluster. This process involves deploying the Prometheus Operator and creating the necessary **`Prometheus`** and **`AlertManager`** objects. These objects instruct the operator to roll out the corresponding Prometheus and AlertManager pods as StatefulSets.
 
-📌 **Note**
-
-*The final configuration can be customized through helm chart values (**`prometheus.prometheusSpec`** and **`alertmanager.alertmanagerSpec`**).*
+> [!NOTE]
+>
+> The final configuration can be customized through helm chart values (**`prometheus.prometheusSpec`** and **`alertmanager.alertmanagerSpec`**).
 
 The **`Prometheus custom resource`** (CR) is a crucial part of this setup. It contains the desired configuration for the Prometheus server.
 
@@ -532,7 +501,7 @@ status:
 
 **`serviceMonitorSelector, podMonitorSelector, probeSelector`**: These selectors determine which monitor objects Prometheus should pay attention to, based on their labels.
 
-> 💡 **Additional Considerations**
+> [!IMPORTANT] **Additional Considerations**
 >
 > **`HA Mechanisms`**: While basic HA is achieved through replication (running multiple instances), advanced > setups might use sharding. However, sharding requires additional components like Thanos for comprehensive querying and rule evaluation.
 
@@ -548,7 +517,7 @@ The kube-stack deployment process not only sets up the Prometheus Operator but a
 
 The AlertManager custom resource (CR) defines the desired state and configuration of the AlertManager server.
 
-It can be retreived from PiKube Kunbernetes cluster
+It can be retrieved from PiKube Kubernetes cluster
 
 ```bash
 kubectl --kubeconfig=/home/pi/.kube/config.yaml get alertmanager -n monitoring
@@ -647,7 +616,7 @@ status:
 
 **`externalUrl`**: Specifies the external URL where AlertManager is accessible, vital for user interaction and integrations.
 
-> 💡 **Additional Considerations**
+> [!IMPORTANT] **Additional Considerations**
 >
 > **`High Availability`**: The configuration can be scaled up to multiple replicas to enhance reliability and ensure continuous monitoring.
 >
@@ -663,7 +632,7 @@ status:
 
 **`Kubernetes Services and Processes`**: Depending on the helm chart configuration, it might include **`coreDNS`**, **`Kube Api server`**, **`kubelet`**, **`Kube Controller Manager`**, **`Kubernetes Scheduler`**, **`Kubernetes etcd`**, and **`Kube Proxy`**.
 
-> 📌 **Note**
+> [!NOTE]
 >
 > *In the chart's configuration, monitoring for the **`kube-controller-manager`**, **`kube-scheduler`**, **`kube-proxy`**, and **`kubelet`** components has been deactivated. However, the **`coreDNS`** component's monitoring remains active.*
 >
@@ -681,7 +650,7 @@ Alongside ServiceMonitors, the **`kube-prometheus-stack`** generates PrometheusR
 
 Grafana is deployed as a subchart of the kube-prometheus-stack, and its configuration is passed via the [**`Grafana value`**](https://github.com/grafana/helm-charts/tree/main/charts/grafana) in the helm chart.
 
-It can be retrieved from PiKube Kubernetes cluster
+It can be retrieved from PiKube Kubernetes Service
 
 ```bash
 helm --kubeconfig=/home/pi/.kube/config.yaml list -n monitoring
@@ -740,7 +709,7 @@ Key configurations include:
 
 **`ServiceMonitor & Sidecar Configuration`**: Sets up ServiceMonitor labels and job relabeling along with additional sidecar dashboard provisioner configurations.
 
-> 💡 **Additional Considerations**
+> [!IMPORTANT] **Additional Considerations**
 >
 > **`Deployment Customization`**: Both AlertManager and Grafana offer numerous customization options. Tailor these settings to align with the operational requirements and constraints.
 >
@@ -756,7 +725,7 @@ Grafana can be integrated with an Identity and Access Management (IAM) solution,
 
 ##### Keycloak Configuration: Configure Grafana Client
 
-To enable SSO, the Grafana client application must be configured within the picluster realm in Keycloak.
+To enable SSO, the Grafana client application must be configured within the PiKube realm in Keycloak.
 
 Procedure Reference: Follow the steps outlined in [**`Keycloak Documentation: Creating an OpenID Connect Client`**](https://www.keycloak.org/docs/latest/server_admin/#proc-creating-oidc-client_server_administration_guide).
 
@@ -766,7 +735,7 @@ Additionally, refer to [**`Grafana Documentation: Configure Keycloak OAuth2 Auth
 
 1. **Create Realm Roles Corresponding to Grafana's Roles**:
 
-   - Define roles such as `admin`, `editor`, and `viewer` within the picluster realm to match Grafana's role structure. Refer to [**`Grafana's Roles`**](https://grafana.com/docs/grafana/latest/administration/roles-and-permissions/).
+   - Define roles such as `admin`, `editor`, and `viewer` within the PiKube realm to match Grafana's role structure. Refer to [**`Grafana's Roles`**](https://grafana.com/docs/grafana/latest/administration/roles-and-permissions/).
 
 2. **Create a New OIDC Client in Keycloak**:
 
