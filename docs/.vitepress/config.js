@@ -62,6 +62,7 @@ export default defineConfig({
             collapsed: true,
             items: [
                 { text: 'K3s Installation', link: '/4-kubernetes/1-k3s-installation' },
+                { text: 'Debug Pod Concept', link: '/4-kubernetes/2-debug-pod' },
             ],
             },
             {

@@ -16,20 +16,6 @@ last_modified_at: "11-03-2024"
     </div>
 </div>
 
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [Architecture Overview](#architecture-overview)
-  - [Setting Up Keycloak on Kubernetes](#setting-up-keycloak-on-kubernetes)
-    - [Alternative installation using External Secret (GitOps)](#alternative-installation-using-external-secret-gitops)
-    - [Alternative installation using external database](#alternative-installation-using-external-database)
-  - [Configuring Keycloak](#configuring-keycloak)
-    - [Pi Cluster Realm Configuration](#pi-cluster-realm-configuration)
-    - [Configure Oauth2-Proxy Client](#configure-oauth2-proxy-client)
-    - [Automated Realm Configuration](#automated-realm-configuration)
-  - [OAuth2-Proxy Installation](#oauth2-proxy-installation)
-    - [Secure Deployment with External Secrets in a GitOps Workflow](#secure-deployment-with-external-secrets-in-a-gitops-workflow)
-    - [Standard Installation](#standard-installation)
-  - [Integrating with Ingress](#integrating-with-ingress) -->
-
 This guide outlines the implementation of Single Sign-On (SSO) within the PiKube Kubernetes Service using [**`Keycloak`**](https://www.keycloak.org/) for centralized authentication and OAuth2-Proxy for secure access management. The solution enables:
 
 - Centralized authentication across cluster services
@@ -37,13 +23,49 @@ This guide outlines the implementation of Single Sign-On (SSO) within the PiKube
 - External authentication for services lacking built-in auth capabilities
 - Integration with Ingress NGINX for secure access management
 
->📢 Note
->
-> *For graphical user interfaces (GUIs) within the Pi Cluster, such as Grafana and Kibana, SSO can be established allowing for authentication through Keycloak instead of relying on local accounts.*
->
-> *It is important to note that the Elasticsearch/Kibana SSO integration using OpenID Connect is not available in the community edition. Consequently, SSO will not be configured for this component. However, Grafana's SSO capability can be enabled by configuring OAuth2.0/OpenID Connect authentication. Detailed instructions for integrating Grafana with Keycloak can be found in the Monitoring (Prometheus) documentation.*
+```mermaid
+sequenceDiagram
+    participant User
+    participant Ingress as Ingress Controller (NGINX)
+    participant OAuth2P as OAuth2-Proxy
+    participant App as Backend Application
+    participant Keycloak as "Keycloak (Identity Provider)"
 
-For applications lacking built-in authentication features (e.g., Longhorn, Prometheus, Linkerd-viz), it's possible to set up an external authentication mechanism through the Ingress controller. The [**`Ingress NGINX`**](https://kubernetes.github.io/ingress-nginx/examples/auth/oauth-external-auth/) supports an OAuth2-based external authentication method using OAuth2-Proxy. This allows for the integration of [**`OAuth2-Proxy`**](https://oauth2-proxy.github.io/oauth2-proxy/) with OpenID-Connect IAM solutions like Keycloak, thereby extending SSO capabilities to these applications.
+    Note over User,Ingress: User tries to access App (via https://app.picluster.quantfinancehub.com)
+    User->>Ingress: HTTP Request: GET /app
+    alt No valid session cookie
+        Ingress->>OAuth2P: External Auth check (/oauth2/auth)
+        OAuth2P->>OAuth2P: Determine user is not authenticated
+        OAuth2P->>Ingress: Return 401
+        Ingress->>User: 302 Redirect to OAuth2P login at /oauth2/start
+        User->>OAuth2P: /oauth2/start
+        OAuth2P->>Keycloak: Redirect user to Keycloak for login
+        Keycloak->>User: Show login page
+        User->>Keycloak: Enter credentials
+        Keycloak-->>Keycloak: Validate credentials
+        alt Valid
+            Keycloak->>OAuth2P: Return ID/Access tokens
+            OAuth2P->>OAuth2P: Create session cookie
+            OAuth2P->>User: Redirect back to /app (with session cookie)
+        else Invalid
+            Keycloak->>User: Show error / login failed
+        end
+    else Already valid session
+        Ingress->>OAuth2P: /oauth2/auth
+        OAuth2P->>Ingress: 200 OK (user session is valid)
+    end
+    Note over Ingress,App: Ingress forwards request to backend with validated identity
+    Ingress->>App: GET /app (X-Forwarded-User or ID token)
+    App->>User: Return the requested content
+```
+
+> [!NOTE]
+>
+> For graphical user interfaces (GUIs) within the PiKube Kubernetes Service, such as Grafana and Kibana, SSO can be established allowing for authentication through Keycloak instead of relying on local accounts.
+>
+> It is important to note that the Elasticsearch/Kibana SSO integration using OpenID Connect is not available in the community edition. Consequently, SSO will not be configured for this component. However, Grafana's SSO capability can be enabled by configuring OAuth2.0/OpenID Connect authentication. Detailed instructions for integrating Grafana with Keycloak can be found in the [Monitoring (Prometheus)](../9-monitoring/7-monitoring-prometheus.md) documentation.
+
+For applications lacking built-in authentication features (e.g., Longhorn, Prometheus, Linkerd-viz), it's possible to set up an external authentication mechanism through the Ingress controller. The [Ingress NGINX](https://kubernetes.github.io/ingress-nginx/examples/auth/oauth-external-auth/) supports an OAuth2-based external authentication method using OAuth2-Proxy. This allows for the integration of [OAuth2-Proxy](https://oauth2-proxy.github.io/oauth2-proxy/) with OpenID-Connect IAM solutions like Keycloak, thereby extending SSO capabilities to these applications.
 
 ## Architecture Overview
 
@@ -540,15 +562,13 @@ helm upgrade --install keycloak bitnami/keycloak \
 
 OAuth credentials (client ID, client secret), cookie secret, and Redis password can be provided from external secrets.
 
-::: warning About ArgoCD and helm native commands
-
-The Redis backend is installed using the Redis Bitnami Helm sub-chart. This Helm chart creates a random credential for the Redis backend.
-When using ArgoCD, Helm native commands like `random` or `lookup`used by the Helm chart to generate this random secret are not supported. As a result, oauth2-proxy fails to save any data to Redis.
-See the [issue bitnami@charts#18130](https://github.com/bitnami/charts/issues/18130) and [issue argocd@argocd#14944](https://github.com/argoproj/argo-cd/issues/14944) for more details.
-
-As a workaround, the issue can be solved by providing the credentials in external secrets.
-
-:::
+> [!WARNING] About ArgoCD and helm native commands
+>
+> The Redis backend is installed using the Redis Bitnami Helm sub-chart. This Helm chart creates a random credential for the Redis backend.
+> When using ArgoCD, Helm native commands like `random` or `lookup`used by the Helm chart to generate this random secret are not supported. As a result, oauth2-proxy fails to save any data to Redis.
+> See the [issue bitnami@charts#18130](https://github.com/bitnami/charts/issues/18130) and [issue argocd@argocd#14944](https://github.com/argoproj/argo-cd/issues/14944) for more details.
+>
+> As a workaround, the issue can be solved by providing the credentials in external secrets.
 
 - Create secret containing oauth2-proxy credentials:
 
