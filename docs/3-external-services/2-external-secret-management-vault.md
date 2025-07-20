@@ -88,8 +88,7 @@ With the user, group, and directories set up, proceed to install Vault.
 - install dependencies
 
 ```bash
-sudo apt install jq unzip certbot python3-pip
-sudo pip3 install certbot-dns-cloudflare
+sudo apt install jq unzip certbot python3-pip python3-certbot-dns-cloudflare -y
 ```
 
 - Fetch the latest version of Vault and the system architecture:
@@ -107,7 +106,7 @@ wget https://releases.hashicorp.com/vault/${LATEST_VERSION}/vault_${LATEST_VERSI
 unzip vault_${LATEST_VERSION}_linux_${ARCH}.zip
 chmod +x vault
 sudo mv vault /usr/local/bin/
-rm -rf vault_${LATEST_VERSION}_linux_${ARCH}.zip
+rm -rf vault_${LATEST_VERSION}_linux_${ARCH}.zip LICENSE.txt
 ```
 
 ## Implementing SSL Certificates for Vault with a Custom CA or Cloudflare using Let's Encrypt
@@ -342,7 +341,7 @@ LimitCORE=0
 WantedBy=multi-user.target
 ```
 
-> 📌 **Note**
+> [!NOTE]
 >
 > *This service start Vault server using vault UNIX group, loading environment variables located in **`/etc/vault/vault_main.hcl`** and executing the following startup command*
 >
@@ -362,7 +361,7 @@ sudo systemctl status vault.service
 - Use Vault's CLI or API to examine the current status, ensuring it's initialized and unsealed correctly
 
 ```bash
-sudo VAULT_ADDR=https://vault.picluster.homelab.com:8200 VAULT_CACERT=/etc/vault/tls/vault-ca.crt vault status
+sudo VAULT_ADDR=https://vault.picluster.quantfinancehub.com:8200 vault status
 ```
 
 The output should be like the following
@@ -388,7 +387,7 @@ It shows Vault server status as not initialized (Initialized = false) and sealed
 - For convenience, set Vault's address and CA certificate in **`~/.bashrc`** to avoid repeated specification.
 
 ```bash
-echo "export VAULT_ADDR=https://vault.picluster.homelab.com:8200" >> ~/.bashrc
+echo "export VAULT_ADDR=https://vault.picluster.quantfinancehub.com:8200" >> ~/.bashrc
 echo "export VAULT_CACERT=/etc/vault/tls/vault-ca.crt" >> ~/.bashrc
 source ~/.bashrc
 ```
@@ -397,14 +396,49 @@ source ~/.bashrc
 
 ```bash
 # Begin log rotation configuration for HashiCorp Vault logs
-echo "/var/log/vault/vault.log {
-    daily                # Rotate the log files daily
-    rotate 7             # Keep the last 7 days of log files
-    compress             # Compress (gzip) the log files upon rotation
-    delaycompress        # Delay compression until the next log rotation cycle
-    missingok            # If the log file is missing, go on to the next one without issuing an error message
-    notifempty           # Do not rotate the log file if it is empty
-    create 0640 vault vault  # Create new log files with set permissions (0640) and owner/group (vault)
+echo "# Configuration for Vault server log rotation
+# Location: /etc/logrotate.d/vault
+
+/var/log/vault/vault.log {
+    # Rotate logs on a daily basis to ensure timely log management
+    daily
+    
+    # Keep the last 7 days of logs before removal
+    # Adjust this value based on compliance requirements and disk space
+    rotate 7
+    
+    # Compress rotated logs to save disk space
+    compress
+    
+    # Delay compression until the next rotation cycle
+    # This keeps the most recently rotated log uncompressed for easier inspection
+    delaycompress
+    
+    # Continue to next log if this one is missing - prevents errors
+    missingok
+    
+    # Skip rotation if the log file is empty
+    # Prevents creating unnecessary empty archived logs
+    notifempty
+    
+    # Create new log files with these permissions and ownership
+    # 0640 ensures logs are readable by vault user and group but not others
+    create 0640 vault vault
+    
+    # Signal Vault to reopen its log files after rotation
+    # This ensures Vault continues logging to the new file without requiring restart
+    postrotate
+        systemctl kill -s USR1 vault.service 2>/dev/null || true
+    endscript
+    
+    # Do not rotate if the log is empty (redundant with notifempty, but explicit)
+    ifempty
+    
+    # Include date extension in rotated log filenames
+    dateext
+    
+    # Format for the date extension (Year-Month-Day)
+    dateformat -%Y%m%d
 }" | sudo tee /etc/logrotate.d/vault
 # This command writes the above configuration to /etc/logrotate.d/vault, effectively
 # setting up log rotation for Vault's logs according to the specified rules.
@@ -423,13 +457,18 @@ By default, Vault uses Shamir's Secret Sharing technique to divide the root key 
 To kickstart Vault, use the **`vault operator init`** command.
 
 ```bash
-sudo -E vault operator init -key-shares=1 -key-threshold=1 -format=json > /etc/vault/unseal.json
-```
+# This runs the entire command including the redirection as root
+sudo VAULT_ADDR=$VAULT_ADDR sh -c "vault operator init -key-shares=1 -key-threshold=1 -format=json > /etc/vault/unseal.json"
 
-or use the below command as sometimes the problem faced is due to shell redirection (>) permissions, not the permissions of the vault command itself. The redirection > is carried out by your shell (bash, in this case) with the current user's permissions, not with the permissions of the command preceding it.
+# Then secure the file
+sudo chmod 600 /etc/vault/unseal.json
+sudo chown vault:vault /etc/vault/unseal.json
 
-```bash
-sudo -E VAULT_ADDR=https://vault.picluster.quantfinancehub.com:8200 vault operator init -key-shares=1 -key-threshold=1 -format=json | sudo tee /etc/vault/unseal.json > /dev/null
+# Make sure vault_main.hcl is managed by vault user
+sudo chown vault:vault /etc/vault/vault_main.hcl
+
+# You may also want to set appropriate permissions
+sudo chmod 640 /etc/vault/vault_main.hcl
 ```
 
 The settings for key shares (**`-key-shares`**) and threshold (**`-key-threshold`**) are both configured to 1, meaning only a single key is required to unseal the Vault.
@@ -453,14 +492,14 @@ The result from the **`vault init`** command is saved to a file named **`/etc/va
 }
 ```
 
-> ⚠️ Important Consideration
+> [!IMPORTANT] **Additional Considerations**
 >
 > *Ensure to create a backup of the **`/etc/vault/unseal.json`** file.*
 
 - After initialization, Vault remains in a sealed state, inaccessible for normal operations
 
 ```bash
-sudo - E vault status
+vault status
 ```
 
 ```bash
@@ -484,7 +523,7 @@ HA Enabled         true
 - Utilize the **`vault operator unseal`** command with a key from **`unseal.json`**
 
 ```bash
-sudo -E VAULT_ADDR=https://vault.picluster.homelab.com:8200 VAULT_CACERT=/etc/vault/tls/vault-ca.crt vault operator unseal $(sudo jq -r '.unseal_keys_b64[0]' /etc/vault/unseal.json)
+sudo -E sh -c "VAULT_ADDR=https://vault.picluster.quantfinancehub.com:8200 vault operator unseal \$(jq -r '.unseal_keys_b64[0]' /etc/vault/unseal.json)"
 ```
 
 ```bash
@@ -522,62 +561,88 @@ timestamp() {
   date "+%b %d %Y %T %Z"
 }
 
-# Vault server URL. Replace the placeholder with the actual Vault server address.
+# Vault server URL
 URL=https://vault.picluster.quantfinancehub.com:8200
 
-# Path to the file containing the unseal keys for Vault.
+# Path to the file containing the unseal keys for Vault
 KEYS_FILE=/etc/vault/unseal.json
 
-# Path to the log file where script output will be recorded.
-LOG=/var/log/vault-unseal.log
+# Path to the log file where script output will be recorded
+LOG=/var/log/vault/vault-unseal.log
 
-# Flag to skip TLS verification in curl commands. Set to true to skip verification.
-SKIP_TLS_VERIFY=true
+# Flag to skip TLS verification in curl commands
+# Setting to false since we're using Let's Encrypt which is trusted
+SKIP_TLS_VERIFY=false
 
-# Parameters for curl command based on whether TLS verification is skipped.
+# Parameters for curl command based on whether TLS verification is skipped
 CURL_PARAMS=$([ "$SKIP_TLS_VERIFY" = true ] && echo "-sk" || echo "-s")
 
-# Ensure the log file exists and set its permissions correctly.
-# These commands might fail if the script doesn't have the necessary permissions,
-# so it's recommended to set up the log file and permissions outside this script.
-touch $LOG
-chown vault:vault $LOG
-chmod 660 $LOG
+# Ensure the script exits on any error
+set -e
 
-# Log the start of the unseal process with a timestamp.
+# Check if we can access the keys file
+if [ ! -r "$KEYS_FILE" ]; then
+  echo "$(timestamp): Error - Cannot read $KEYS_FILE" | tee -a $LOG
+  exit 1
+fi
+
+# Log the start of the unseal process with a timestamp
 echo "$(timestamp): Vault-unseal initiated" | tee -a $LOG
 echo "-------------------------------------------------------------------------------" | tee -a $LOG
 
-# Check if Vault is initialized by querying its health endpoint.
-initialized=$(curl $CURL_PARAMS $URL/v1/sys/health | jq '.initialized')
+# Add a retry mechanism for initial health check
+MAX_RETRIES=5
+retry_count=0
 
-# If Vault is initialized, proceed with the unseal process.
-if [ "$initialized" = true ]; then
+while [ $retry_count -lt $MAX_RETRIES ]; do
+  # Check if Vault is available and initialized
+  health_check=$(curl $CURL_PARAMS $URL/v1/sys/health || echo '{"initialized": false, "sealed": true}')
+  initialized=$(echo "$health_check" | jq -r '.initialized')
+  
+  if [ "$initialized" = "true" ] || [ "$initialized" = "false" ]; then
+    break
+  fi
+  
+  echo "$(timestamp): Vault health check failed, retrying ($((retry_count+1))/$MAX_RETRIES)..." | tee -a $LOG
+  retry_count=$((retry_count+1))
+  sleep 5
+done
+
+# If Vault is initialized, proceed with the unseal process
+if [ "$initialized" = "true" ]; then
   echo "$(timestamp): Vault is initialized" | tee -a $LOG
 
-  # Continuously check if Vault is sealed and attempt to unseal it.
-  while true; do
-    status=$(curl $CURL_PARAMS $URL/v1/sys/health | jq '.sealed')
+  # Get current seal status
+  sealed=$(echo "$health_check" | jq -r '.sealed')
+  
+  # Only attempt to unseal if Vault is actually sealed
+  if [ "$sealed" = "true" ]; then
+    echo "$(timestamp): Vault is sealed. Attempting to unseal" | tee -a $LOG
     
-    # If Vault is sealed, attempt to unseal it using keys from the unseal.json file.
-    if [ "$status" = true ]; then
-        echo "$(timestamp): Vault is sealed. Attempting to unseal" | tee -a $LOG
-        
-        # Extract unseal keys from the JSON file and use them to unseal Vault.
-        for i in $(jq -r '.unseal_keys_b64[]' $KEYS_FILE); do 
-          curl $CURL_PARAMS --request PUT --data "{\"key\": \"$i\"}" $URL/v1/sys/unseal
-        done
-
-        # Wait for 10 seconds before checking the seal status again.
-        sleep 10
-    else
-        # If Vault is unsealed, log the success and exit the loop.
+    # Extract unseal keys from the JSON file and use them to unseal Vault
+    for i in $(jq -r '.unseal_keys_b64[]' $KEYS_FILE); do 
+      unseal_result=$(curl $CURL_PARAMS --request PUT --data "{\"key\": \"$i\"}" $URL/v1/sys/unseal)
+      remaining=$(echo "$unseal_result" | jq -r '.sealed')
+      
+      if [ "$remaining" = "false" ]; then
         echo "$(timestamp): Vault successfully unsealed" | tee -a $LOG
-        break
+        exit 0
+      fi
+    done
+    
+    # Check if Vault is still sealed after all attempts
+    final_status=$(curl $CURL_PARAMS $URL/v1/sys/health | jq -r '.sealed')
+    if [ "$final_status" = "true" ]; then
+      echo "$(timestamp): Failed to unseal Vault after all attempts" | tee -a $LOG
+      exit 1
+    else
+      echo "$(timestamp): Vault successfully unsealed" | tee -a $LOG
     fi
-  done
+  else
+    echo "$(timestamp): Vault is already unsealed" | tee -a $LOG
+  fi
 else
-  # If Vault is not initialized, log this status.
+  # If Vault is not initialized, log this status
   echo "$(timestamp): Vault hasn't been initialized" | tee -a $LOG
 fi
 ```
@@ -607,11 +672,37 @@ WantedBy=multi-user.target vault.service
 - Activate and launch the systemd service.
 
 ```bash
+# Make the unseal script executable
+sudo chmod +x /etc/vault/vault-unseal.sh
+
+# Fix the ownership of the unseal script
+sudo chown vault:vault /etc/vault/vault-unseal.sh
+
+# Check if the systemd service is correctly loaded
+sudo systemctl daemon-reload
 sudo systemctl enable vault-unseal.service
 sudo systemctl start vault-unseal.service
 ```
 
 Now, every time Vault starts, it should automatically unseal, streamlining the process.
+
+To check if your vault-unseal service is properly configured and working, you can run these commands:
+
+```bash
+sudo systemctl status vault-unseal.service
+
+# Test the script manually to see if it works properly
+sudo -u vault /etc/vault/vault-unseal.sh
+
+# Test a restart of the vault service to see if automatic unsealing works
+sudo systemctl restart vault.service
+sleep 15
+sudo systemctl status vault-unseal.service
+
+# Check if Vault is unsealed after the restart
+export VAULT_ADDR=https://vault.picluster.quantfinancehub.com:8200
+vault status
+```
 
 ## Configuring HashiCorp Vault: Setting Up and Managing Secrets
 
@@ -625,7 +716,7 @@ First, set the environment variable **`VAULT_TOKEN`** with the root token found 
 export VAULT_TOKEN=$(sudo jq -r '.root_token' /etc/vault/unseal.json)
 ```
 
->📢 Note
+> [!NOTE]
 >
 > *Vault's functionality extends beyond CLI commands, enabling operations through its API for comprehensive automation and integration capabilities. Always include the Vault token in the HTTP header as **`X-Vault-Token`** when making API requests.*
 

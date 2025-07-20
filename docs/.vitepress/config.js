@@ -10,6 +10,7 @@ export default withMermaid(
         description: 'Comprehensive documentation for the PiKube Kubernetes Service.', // A brief description of your site
         base: '/pikube-kubernetes-service/', // Base URL the site will be deployed at (adjust if deploying to a sub-path)
         
+        
         markdown: {
             toc: false // This disables the TOC globally
             },
@@ -49,6 +50,7 @@ export default withMermaid(
                 items: [
                     { text: 'Gateway Configuration', link: '/2-cluster-setup/1-cluster-gateway-configuration' },
                     { text: 'Nodes Configuration', link: '/2-cluster-setup/2-cluster-nodes-configuration' },
+                    { text: 'DNS Architecture', link: '/2-cluster-setup/3-pikube-dns-architecture' },
                 ],
                 },
                 {
