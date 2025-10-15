@@ -1371,7 +1371,6 @@ ntp_config:
 This comprehensive gateway configuration provides enterprise-grade network infrastructure for your PiKube Kubernetes cluster. The combination of advanced firewall protection, intelligent DNS/DHCP management, and high-precision time synchronization creates a robust foundation for reliable cluster operations.
 
 For related configurations, see:
-- [PiKube DNS Architecture](./3-pikube-dns-architecture.md)
-- [Kubernetes Cluster Setup](./2-kubernetes-cluster-setup.md)
+- [PiKube DNS Architecture](./3-dns-architecture)
 
 *Documentation based on live system analysis and professional network engineering practices.*
