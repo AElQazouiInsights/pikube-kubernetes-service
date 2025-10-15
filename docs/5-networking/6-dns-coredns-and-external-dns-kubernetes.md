@@ -13,7 +13,7 @@ Kubernetes DNS services form the backbone of service discovery and external conn
 
 > [!IMPORTANT] 🏠 DNS Architecture Foundation
 > This guide assumes you have already implemented the split-horizon DNS architecture described in:  
-> [PiKube Split-Horizon DNS Architecture](../../2-cluster-setup/3-dns-architecture.md)
+> [PiKube Split-Horizon DNS Architecture](../2-cluster-setup/3-dns-architecture)
 >
 > The foundation includes:
 >
@@ -269,7 +269,7 @@ External-DNS automatically synchronizes Kubernetes services with external DNS pr
 
 > [!IMPORTANT] 📋 Foundation Required  
 > This section assumes you have already completed the Bind9 setup from:  
-> [PiKube Split-Horizon DNS Architecture - Step 1](../../2-cluster-setup/3-dns-architecture.md#step-1-internal-authoritative-dns-server-setup)
+> [PiKube Split-Horizon DNS Architecture - Step 1](../2-cluster-setup/3-dns-architecture#step-1-internal-authoritative-dns-server-setup)
 >
 > If you haven't completed the basic setup, please do so before proceeding.
 
@@ -288,7 +288,7 @@ grep -q "include.*externaldns.key" /etc/bind/named.conf && echo "TSIG key includ
 sudo named-checkconf
 ```
 
-If the TSIG key is missing, follow the [DNS Architecture Setup Guide](../../2-cluster-setup/3-dns-architecture.md#security-configuration) to generate and configure it.
+If the TSIG key is missing, follow the [DNS Architecture Setup Guide](../2-cluster-setup/3-dns-architecture#security-configuration) to generate and configure it.
 
 ### External-DNS Installation
 

@@ -92,9 +92,9 @@ graph TB
 
 ## Prerequisites
 
-> [!NOTE] 🏠 Minio S3 Backend Required*  
-> This guide assumes you have already configured Minio S3 storage as described in:  
-> [Minio S3 Backup Backend Setup](../../3-external-services/1-s3-backup-backend-minio-setup.md)
+> [!NOTE] 🏠 Minio S3 Backend Required*
+> This guide assumes you have already configured Minio S3 storage as described in:
+> [Minio S3 Backup Backend Setup](../3-external-services/1-s3-backup-backend-minio-setup)
 >
 > Required components:
 >

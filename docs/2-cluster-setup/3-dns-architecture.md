@@ -355,7 +355,7 @@ Deploy ExternalDNS in your Kubernetes cluster to automatically manage DNS record
 
 > [!IMPORTANT]📋 Implementation Details  
 > For complete CoreDNS and ExternalDNS configuration, deployment steps, and troubleshooting, see:  
-> [Kubernetes DNS with CoreDNS and External-DNS](../5-networking/6-dns-coredns-and-external-dns-kubernetes-revised.md)
+> [Kubernetes DNS with CoreDNS and External-DNS](../5-networking/6-dns-coredns-and-external-dns-kubernetes.md)
 
 ---
 
@@ -382,6 +382,6 @@ Deploy ExternalDNS in your Kubernetes cluster to automatically manage DNS record
 
 This architecture provides the foundation for a production-ready, secure, and scalable DNS infrastructure that grows with your Kubernetes cluster while maintaining the flexibility to access services from both internal and external networks.
 
-For implementation details about Kubernetes DNS services, see [Kubernetes DNS with CoreDNS and External-DNS](../5-networking/6-dns-coredns-and-external-dns-kubernetes-revised.md).
+For implementation details about Kubernetes DNS services, see [Kubernetes DNS with CoreDNS and External-DNS](../5-networking/6-dns-coredns-and-external-dns-kubernetes.md).
 
 Zone file syntax follows [RFC1035](https://datatracker.ietf.org/doc/html/rfc1035) standards. For detailed zone file structure information, see [Bind9 documentation](https://bind9.readthedocs.io/en/v9.18.30/chapter3.html#soa-rr).
