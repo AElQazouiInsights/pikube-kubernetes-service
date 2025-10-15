@@ -197,7 +197,15 @@ export default withMermaid(
         // **Markdown Configuration** (merged both settings)
         markdown: {
             toc: false,  // This disables the TOC globally
-            mermaid: true  // Enable mermaid diagrams
+            mermaid: true,  // Enable mermaid diagrams
+            // Map unsupported languages to supported ones
+            languageAlias: {
+                'config': 'ini',      // Use ini highlighting for config files
+                'conf': 'nginx',      // Use nginx highlighting for conf files
+                'init': 'ini',        // Use ini highlighting for init files
+                'logql': 'sql',       // LogQL is query-based, use SQL highlighting
+                'promql': 'sql'       // PromQL is query-based, use SQL highlighting
+            }
         },
     })
 )

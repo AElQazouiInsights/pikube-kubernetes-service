@@ -1,5 +1,5 @@
 ---
-title: "Chapter 7: Memory Management"
+title: "Memory Management"
 permalink: /15-ai-intelligent-operations/7-memory-management
 description: "Learn how to implement efficient memory management for your AI agent, including LLM response caching, session state management, and vector embeddings to optimize performance and reduce costs."
 last_modified_at: 2025-10-15

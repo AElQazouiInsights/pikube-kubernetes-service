@@ -1,5 +1,5 @@
 ---
-title: "Chapter 4: Storage Layer Setup"
+title: "Storage Layer Setup"
 permalink: /15-ai-intelligent-operations/4-storage-layer-setup
 description: "Comprehensive guide to setting up the storage infrastructure for AI agents including PostgreSQL with pgvector, Redis cache, and ChromaDB vector database"
 last_modified_at: 2025-10-15
