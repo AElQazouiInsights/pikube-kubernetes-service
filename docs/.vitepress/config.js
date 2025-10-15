@@ -33,37 +33,12 @@ export default withMermaid(
                 ],
                 },
                 {
-                    text: 'Automation',
-                    collapsed: true,
-                    items: [
-                        { text: 'Ansible Control Node', link: '/14-automation/1-ansible-control-node' },
-                    ],
-                    },
-                {
-                    text: 'AI Intelligent Operations',
-                    collapsed: true,
-                    items: [
-                        { text: 'Introduction to AI Agents', link: '/15-ai-intelligent-operations/1-introduction-to-ai-agents' },
-                        { text: 'Architecture and Design', link: '/15-ai-intelligent-operations/2-architecture-and-design' },
-                        { text: 'Prerequisites and Foundation', link: '/15-ai-intelligent-operations/3-prerequisites-and-foundation' },
-                        { text: 'Storage Layer Setup', link: '/15-ai-intelligent-operations/4-storage-layer-setup' },
-                        { text: 'Agent Core Implementation', link: '/15-ai-intelligent-operations/5-agent-core-implementation' },
-                        { text: 'Tool Development', link: '/15-ai-intelligent-operations/6-tool-development' },
-                        { text: 'Memory Management', link: '/15-ai-intelligent-operations/7-memory-management' },
-                        { text: 'Guardrails and Safety', link: '/15-ai-intelligent-operations/8-guardrails-and-safety' },
-                        { text: 'Deployment and GitOps', link: '/15-ai-intelligent-operations/9-deployment-and-gitops' },
-                        { text: 'Monitoring and Observability', link: '/15-ai-intelligent-operations/10-monitoring-and-observability' },
-                        { text: 'Testing and Validation', link: '/15-ai-intelligent-operations/11-testing-and-validation' },
-                        { text: 'Production Operations', link: '/15-ai-intelligent-operations/12-production-operations' },
-                    ],
-                    },
-                {
                 text: 'Cluster Setup',
                 collapsed: true,
                 items: [
                     { text: 'Gateway Configuration', link: '/2-cluster-setup/1-cluster-gateway-configuration' },
                     { text: 'Nodes Configuration', link: '/2-cluster-setup/2-cluster-nodes-configuration' },
-                    { text: 'DNS Architecture', link: '/2-cluster-setup/3-pikube-dns-architecture' },
+                    { text: 'DNS Architecture', link: '/2-cluster-setup/3-dns-architecture' },
                 ],
                 },
                 {
@@ -80,6 +55,7 @@ export default withMermaid(
                 items: [
                     { text: 'K3s Installation', link: '/4-kubernetes/1-k3s-installation' },
                     { text: 'Debug Pod Concept', link: '/4-kubernetes/2-debug-pod' },
+                    { text: 'Volcano Scheduler', link: '/4-kubernetes/3-volcano-scheduler' },
                 ],
                 },
                 {
@@ -132,9 +108,33 @@ export default withMermaid(
                 text: 'Backup',
                 collapsed: true,
                 items: [
-                    // Add specific markdown files under /10-backup/ if available
-                    // Example:
-                    // { text: 'Backup Strategy', link: '/10-backup/backup-strategy' },
+                    { text: 'Backup and Restore', link: '/10-backup/1-backup-and-restore' },
+                    { text: 'Restic System Backup', link: '/10-backup/1-restic-system-backup' },
+                ],
+                },
+                {
+                text: 'Automation',
+                collapsed: true,
+                items: [
+                    { text: 'Ansible Control Node', link: '/14-automation/1-ansible-control-node' },
+                ],
+                },
+                {
+                text: 'AI Intelligent Operations',
+                collapsed: true,
+                items: [
+                    { text: 'Introduction to AI Agents', link: '/15-ai-intelligent-operations/1-introduction-to-ai-agents' },
+                    { text: 'Architecture and Design', link: '/15-ai-intelligent-operations/2-architecture-and-design' },
+                    { text: 'Prerequisites and Foundation', link: '/15-ai-intelligent-operations/3-prerequisites-and-foundation' },
+                    { text: 'Storage Layer Setup', link: '/15-ai-intelligent-operations/4-storage-layer-setup' },
+                    { text: 'Agent Core Implementation', link: '/15-ai-intelligent-operations/5-agent-core-implementation' },
+                    { text: 'Tool Development', link: '/15-ai-intelligent-operations/6-tool-development' },
+                    { text: 'Memory Management', link: '/15-ai-intelligent-operations/7-memory-management' },
+                    { text: 'Guardrails and Safety', link: '/15-ai-intelligent-operations/8-guardrails-and-safety' },
+                    { text: 'Deployment and GitOps', link: '/15-ai-intelligent-operations/9-deployment-and-gitops' },
+                    { text: 'Monitoring and Observability', link: '/15-ai-intelligent-operations/10-monitoring-and-observability' },
+                    { text: 'Testing and Validation', link: '/15-ai-intelligent-operations/11-testing-and-validation' },
+                    { text: 'Production Operations', link: '/15-ai-intelligent-operations/12-production-operations' },
                 ],
                 },
                 {
@@ -150,6 +150,7 @@ export default withMermaid(
                 items: [
                     { text: 'Databases', link: '/12-microservices/1-databases' },
                     { text: 'Service Mesh (Linkerd)', link: '/12-microservices/2-service-mesh-linkerd' },
+                    { text: 'Service Mesh (Istio)', link: '/12-microservices/3-service-mesh-istio' },
                     { text: 'Kafka', link: '/12-microservices/4-kafka' },
                     { text: 'Hasura Finance Application', link: '/12-microservices/5-finance-app-hasura' }
                 ],
