@@ -9,12 +9,7 @@ export default withMermaid(
         title: 'PiKube Documentation', // The title of your documentation site
         description: 'Comprehensive documentation for the PiKube Kubernetes Service.', // A brief description of your site
         base: '/pikube-kubernetes-service/', // Base URL the site will be deployed at (adjust if deploying to a sub-path)
-        
-        
-        markdown: {
-            toc: false // This disables the TOC globally
-            },
-        
+
         // **Theme Configuration**
         themeConfig: {
             // **Logo Configuration**
@@ -42,6 +37,24 @@ export default withMermaid(
                     collapsed: true,
                     items: [
                         { text: 'Ansible Control Node', link: '/14-automation/1-ansible-control-node' },
+                    ],
+                    },
+                {
+                    text: 'AI Intelligent Operations',
+                    collapsed: true,
+                    items: [
+                        { text: 'Introduction to AI Agents', link: '/15-ai-intelligent-operations/1-introduction-to-ai-agents' },
+                        { text: 'Architecture and Design', link: '/15-ai-intelligent-operations/2-architecture-and-design' },
+                        { text: 'Prerequisites and Foundation', link: '/15-ai-intelligent-operations/3-prerequisites-and-foundation' },
+                        { text: 'Storage Layer Setup', link: '/15-ai-intelligent-operations/4-storage-layer-setup' },
+                        { text: 'Agent Core Implementation', link: '/15-ai-intelligent-operations/5-agent-core-implementation' },
+                        { text: 'Tool Development', link: '/15-ai-intelligent-operations/6-tool-development' },
+                        { text: 'Memory Management', link: '/15-ai-intelligent-operations/7-memory-management' },
+                        { text: 'Guardrails and Safety', link: '/15-ai-intelligent-operations/8-guardrails-and-safety' },
+                        { text: 'Deployment and GitOps', link: '/15-ai-intelligent-operations/9-deployment-and-gitops' },
+                        { text: 'Monitoring and Observability', link: '/15-ai-intelligent-operations/10-monitoring-and-observability' },
+                        { text: 'Testing and Validation', link: '/15-ai-intelligent-operations/11-testing-and-validation' },
+                        { text: 'Production Operations', link: '/15-ai-intelligent-operations/12-production-operations' },
                     ],
                     },
                 {
@@ -179,8 +192,11 @@ export default withMermaid(
             copyright: 'Copyright © 2024 Amine El Qazoui', // Copyright information
             },
         },
+
+        // **Markdown Configuration** (merged both settings)
         markdown: {
-            mermaid: true
+            toc: false,  // This disables the TOC globally
+            mermaid: true  // Enable mermaid diagrams
         },
     })
 )
