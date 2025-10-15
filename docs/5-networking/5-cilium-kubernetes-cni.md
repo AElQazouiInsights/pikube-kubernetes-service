@@ -7,12 +7,14 @@ last_modified_at: "2025-01-11"
 
 # {{ $frontmatter.title }}
 
+<!-- Image placeholder - add cilium logo when available
 <p align="center">
     <img alt="cilium"
     src="../resources/networking/cilium-logo.svg"
     width="30%"
     height="%">
 </p>
+-->
 
 > [!IMPORTANT]
 > **Load Balancer Technology Choice: MetalLB vs Cilium**
