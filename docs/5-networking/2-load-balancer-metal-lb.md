@@ -1,8 +1,8 @@
 ---
-title: Using Metal LB as a Load Balancer in K3S
-permalink: /docs/5-networking/3-load-balancer-metal-lb/
-description: How to disable default K3S load balancer and configure a custom Metal LB as load balancer in PiKube Kubernetes Service.
-last_modified_at: "12-11-2023"
+title: MetalLB Load Balancer for K3s
+permalink: /docs/5-networking/2-load-balancer-metal-lb/
+description: Complete guide to deploying MetalLB as a production-grade load balancer replacement for Klipper-LB in the PiKube Kubernetes Service.
+last_modified_at: "2025-01-11"
 ---
 
 # {{ $frontmatter.title }}
@@ -14,104 +14,199 @@ last_modified_at: "12-11-2023"
     height="%">
 </p>
 
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [Disabling the Klipper Load Balancer](#disabling-the-klipper-load-balancer)
-  - [Initial Services Post-Installation](#initial-services-post-installation)
-  - [Why Choose Metal LB?](#why-choose-metal-lb)
-  - [Metal LB's Role](#metal-lbs-role)
-  - [How Metal LB Operates](#how-metal-lb-operates)
-  - [Install Metal Load Balancer using Helm](#install-metal-load-balancer-using-helm) -->
+> [!IMPORTANT]
+> **Load Balancer Technology Choice: MetalLB vs Cilium**
+>
+> You need to choose between MetalLB and Cilium for load balancing in your cluster. Here's a comparison:
+>
+> **🔧 MetalLB**
+>
+> **Pros:**
+>
+> - ✅ **Dedicated purpose** - focused solely on load balancing
+> - ✅ **Simple setup** - easy to understand and configure
+> - ✅ **CNI agnostic** - works with any CNI (Flannel, Calico, etc.)
+> - ✅ **Mature technology** - battle-tested in production environments
+> - ✅ **Lightweight** - minimal resource overhead
+> - ✅ **Flexible IP management** - multiple pools and assignment strategies
+>
+> **Cons:**
+>
+> - ❌ **Limited scope** - only provides load balancing functionality
+> - ❌ **Layer 2 limitations** - single point of failure in L2 mode
+> - ❌ **Additional complexity** - separate component to manage
+>
+> **🌐 Cilium LB-IPAM**
+>
+> **Pros:**
+>
+> - ✅ **Integrated solution** - CNI and load balancing in one
+> - ✅ **Advanced networking** - eBPF-based high performance
+> - ✅ **Rich feature set** - network policies, observability, service mesh
+> - ✅ **True load balancing** - no single point of failure
+> - ✅ **Cloud-native** - designed for modern Kubernetes
+> - ✅ **Future-proof** - actively developed with cutting-edge features
+>
+> **Cons:**
+>
+> - ❌ **Higher complexity** - requires Cilium as CNI replacement
+> - ❌ **Resource overhead** - more memory and CPU usage
+> - ❌ **Learning curve** - more complex configuration and troubleshooting
+> - ❌ **Newer technology** - less mature than MetalLB
+>
+> **💡 Recommendation:** Choose MetalLB for simple, dedicated load balancing. Choose Cilium for comprehensive networking with integrated load balancing.
 
-Opting for **`Metal LB`** in place of the default **`Klipper Load Balancer`** in K3S is a strategic choice due to **`Metal LB`**'s versatility and broad compatibility with different Kubernetes distributions. Its adaptability across various environments renders **`Metal LB`** a more favorable option for load balancing needs in Kubernetes.
+MetalLB is a powerful load balancer implementation designed for bare-metal Kubernetes clusters. It provides the missing LoadBalancer implementation that cloud providers typically offer, making it an excellent replacement for K3s's default Klipper Load Balancer.
 
 ## Disabling the Klipper Load Balancer
 
-To incorporate Metal LB, first disable the embedded Klipper Load Balancer in K3S. This is achieved using the **`--disable servicelb`** option during the K3S server installation performed during the [**`Master Nodes Set Up`**](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/documentation/2.4-k3s-installation.md#3-setting-up-master-nodes).
+To use MetalLB, first disable K3s's embedded Klipper Load Balancer during cluster installation using the `--disable servicelb` option, as configured in the [K3s Installation Guide](../4-kubernetes/1-k3s-installation.md#master-node-configuration).
 
-## Initial Services Post-Installation
+```bash
+# During K3s installation
+curl -sfL https://get.k3s.io | sh -s - server --disable servicelb
+```
 
-Following the K3S installation with the disabled service load balancer, the default started pods and services include:
+## Why Choose MetalLB?
 
-- Pods (Displayed using kubectl get pods --all-namespaces)
-- Services (Shown via kubectl get services --all-namespaces)
+In bare-metal Kubernetes environments, LoadBalancer services remain in "pending" state indefinitely without a proper load balancer implementation. Standard alternatives like NodePort and externalIPs have significant limitations for production deployments.
 
-## Why Choose Metal LB?
+### MetalLB Advantages
 
-In bare-metal Kubernetes clusters, services of type LoadBalancer remain in a "pending" state indefinitely, as seen above with the Traefik LoadBalancer service. Standard Kubernetes doesn't provide a network load balancer implementation for bare-metal environments. The typical options, "NodePort" and "externalIPs," have limitations for production use, often relegating bare-metal clusters to a secondary status.
+🚀 **Production Ready**: Enterprise-grade load balancing for bare-metal clusters  
+🌐 **Protocol Support**: Layer 2 and BGP networking modes  
+🔧 **Flexibility**: Advanced configuration options and IP pool management  
+📈 **Scalability**: Handles complex routing and multiple IP ranges  
+🛡️ **Reliability**: High availability with leader election mechanisms
 
-## Metal LB's Role
+## MetalLB Architecture
 
-MetalLB bridges this gap, offering a network load balancer that integrates with standard network equipment. It enables external services on bare-metal clusters to be accessible via a pool of external IP addresses.
+MetalLB consists of two primary components working together:
 
-## How Metal LB Operates
+### 🎛️ Controller
 
-MetalLB operates in two key modes, Border Gateway Protocol (BGP) and Layer 2 Networking, and consists of two primary components:
+- **Purpose**: Manages IP address allocation from configured pools
+- **Function**: Assigns unique external IPs to LoadBalancer services
+- **Deployment**: Single replica with leader election for high availability
 
-- **Operational Modes**:
+### 📢 Speaker
 
-  - **`Layer 2 Mode`**
+- **Purpose**: Announces allocated service IPs to the network
+- **Function**: Handles Layer 2 ARP/NDP or BGP route advertisement
+- **Deployment**: DaemonSet running on each worker node
 
-    - **`Universal Compatibility`**: Functions with any Ethernet network.
-    - **`Leader Node Role`**: Designates a leader node to advertise Kubernetes LoadBalancer services to the local network, making it appear as if the node possesses multiple IP addresses. This node responds to ARP (IPv4) and NDP (IPv6) requests.
-    - **`Simplicity and Compatibility:`**: Enables straightforward local network access to Kubernetes services, ideal for environments not requiring complex routing. While broadly compatible, it may lack the scalability and control of more intricate network setups.
+### Architecture Diagram
 
-  - **`BGP Mode`**
+```mermaid
+graph TB
+    subgraph "🏢 MetalLB Architecture"
+        Controller["🎛️ Controller<br/>📋 IP Pool Management<br/>🎯 Service Assignment"]
+        
+        subgraph "📢 Speaker DaemonSet"
+            Speaker1["📢 Speaker<br/>🖥️ Node 1"]
+            Speaker2["📢 Speaker<br/>🖥️ Node 2"]
+            Speaker3["📢 Speaker<br/>🖥️ Node 3"]
+        end
+    end
+    
+    subgraph "🌐 Network Modes"
+        L2["🔗 Layer 2 Mode<br/>📡 ARP/NDP Advertisement<br/>🎯 Leader Election"]
+        BGP["🌍 BGP Mode<br/>🔀 Dynamic Routing<br/>⚖️ Load Distribution"]
+    end
+    
+    subgraph "🎯 LoadBalancer Services"
+        Service1["⚖️ Service A<br/>📍 10.0.0.100"]
+        Service2["⚖️ Service B<br/>📍 10.0.0.101"]
+        Service3["⚖️ Service C<br/>📍 10.0.0.102"]
+    end
+    
+    Controller --> Speaker1
+    Controller --> Speaker2
+    Controller --> Speaker3
+    
+    Speaker1 -.-> L2
+    Speaker2 -.-> BGP
+    Speaker3 -.-> L2
+    
+    L2 --> Service1
+    BGP --> Service2
+    L2 --> Service3
+    
+    classDef controllerStyle fill:#667eea,stroke:#764ba2,stroke-width:3px,color:#fff
+    classDef speakerStyle fill:#f093fb,stroke:#f5576c,stroke-width:3px,color:#fff
+    classDef modeStyle fill:#4facfe,stroke:#00f2fe,stroke-width:3px,color:#fff
+    classDef serviceStyle fill:#43e97b,stroke:#38f9d7,stroke-width:3px,color:#fff
+    
+    class Controller controllerStyle
+    class Speaker1,Speaker2,Speaker3 speakerStyle
+    class L2,BGP modeStyle
+    class Service1,Service2,Service3 serviceStyle
+```
 
-    - **`Router Requirements`**: Necessitates specific routers to function effectively.
-    - **`Sophisticated Network Integration`**: Facilitates more dynamic and nuanced routing of traffic, making it suitable for environments demanding advanced routing capabilities and scalability.
+## How MetalLB Operates
 
-- **MetalLB Components**:
+MetalLB supports two operational modes for different network environments:
 
-  - **`Controller`**: Handles the allocation of IP addresses from a predefined pool, ensuring each service receives a unique external IP as needed.
+### 🔗 Layer 2 Mode
+- **Universal Compatibility**: Works with any Ethernet network infrastructure
+- **Leader Node Role**: One node acts as the leader for each service IP, responding to ARP/NDP requests
+- **Simplicity**: Ideal for simple networks without complex routing requirements
+- **Limitations**: Single point of failure, all traffic flows through the leader node
 
-  - **`Speaker`**: Operates as a DaemonSet pod on each worker node, announcing the service IPs allocated by the Controller, thus facilitating network communication.
+### 🌍 BGP Mode
+- **Router Requirements**: Requires BGP-capable network equipment
+- **Advanced Integration**: Dynamic routing with sophisticated traffic distribution
+- **Scalability**: True load balancing across multiple nodes
+- **Production Ready**: Suitable for enterprise environments with complex networking
 
-TODO pikube-metal-lb-architecture.drawio
+## Install MetalLB using Helm
 
-- **Understanding the Networking Modes:**
-
-  - **`Layer 2 Networking:`** At the data link layer, this mode provides local network access to Kubernetes services. Primarily serving as a failover mechanism, the leader node channels traffic for a service IP and kube-proxy disperses it across the service's pods.
-
-  - **`Border Gateway Protocol (BGP):`** A pivotal internet routing protocol, BGP in MetalLB allows for versatile and dynamic traffic routing, particularly beneficial in complex network environments where flexibility and scalability are paramount.
-
-## Install Metal Load Balancer using Helm
-
-- Add the **`Metal LB`** Helm Repository
+### Add MetalLB Helm Repository
 
 ```bash
 helm repo add metallb https://metallb.github.io/metallb
 ```
 
-- Update Helm Repositories to fetche the latest charts available in the **`Metal LB`** repository
+### Update Helm Repositories
 
 ```bash
 helm repo update
 ```
 
-- Create a dedicated namespace for **`Metal LB`** for organizational purposes
+### Create Dedicated Namespace
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml create namespace metal-lb
+kubectl create namespace metal-lb
 ```
 
-- Install **`Metal LB`** in the specified namespace using Helm
+### Install MetalLB
 
 ```bash
-helm install metallb metallb/metallb --namespace metal-lb --kubeconfig=/home/pi/.kube/config.yaml
+helm install metallb metallb/metallb --namespace metal-lb
 ```
 
-- Verify the Deployment by confirming that the **`Metal LB`** pods are running successfully in the metal-lb namespace
+### Verify the Deployment
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n metal-lb get pod
+kubectl -n metal-lb get pods
 ```
 
-- Configure the **`IP Address Pool`** and **`Announcement Method`** (Layer 2 advertisement) by creating the **`metal-lb-config.yaml`** file
+Expected output:
+```
+NAME                          READY   STATUS    RESTARTS   AGE
+metallb-controller-xxx        1/1     Running   0          2m
+metallb-speaker-xxx           1/1     Running   0          2m
+```
+
+## Configure IP Address Pool and Advertisement
+
+Create the MetalLB configuration file:
 
 ```yaml
+# metal-lb-config.yaml
 ---
 # MetalLB Address Pool Configuration
-# This defines a range of IP addresses that Metal LB controls and can assign.
+# This defines a range of IP addresses that MetalLB controls and can assign
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
@@ -123,7 +218,7 @@ spec:
 
 ---
 # Layer 2 Advertisement Configuration
-# This section configures Metal LB to use Layer 2 mode to advertise IP addresses.
+# This configures MetalLB to use Layer 2 mode to advertise IP addresses
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
 metadata:
@@ -134,16 +229,115 @@ spec:
   - picluster-pool
 ```
 
-- Apply the Manifest
+### Apply the Configuration
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f metal-lb-config.yaml
+kubectl apply -f metal-lb-config.yaml
 ```
 
-After applying the configuration, **`Metal LB`** will assign external IP addresses from the defined pool to services of type LoadBalancer, like **`Traefik`**.
+After applying the configuration, MetalLB will assign external IP addresses from the defined pool to LoadBalancer services.
 
-Check LoadBalancer Services by listing all services in the cluster to check if the LoadBalancer services have been assigned an external IP
+## Verify LoadBalancer Services
+
+Check that LoadBalancer services receive external IPs:
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get services --all-namespaces
+kubectl get services --all-namespaces
+```
+
+You should see services like NGINX Ingress Controller and other LoadBalancer services with external IPs assigned from the 10.0.0.100-10.0.0.200 range.
+
+> [!TIP]
+> **Advanced Configuration**
+>
+> For production environments, consider these advanced MetalLB configurations:
+>
+> **Multiple IP Pools**
+>
+> ```yaml
+> ---
+> apiVersion: metallb.io/v1beta1
+> kind: IPAddressPool
+> metadata:
+>   name: production-pool
+>   namespace: metal-lb
+> spec:
+>   addresses:
+>   - 10.0.0.100-10.0.0.150
+> 
+> ---
+> apiVersion: metallb.io/v1beta1
+> kind: IPAddressPool
+> metadata:
+>   name: development-pool
+>   namespace: metal-lb
+> spec:
+>   addresses:
+>   - 10.0.0.151-10.0.0.200
+> ```
+>
+> **BGP Configuration**
+>
+> ```yaml
+> ---
+> apiVersion: metallb.io/v1beta2
+> kind: BGPPeer
+> metadata:
+>   name: router-peer
+>   namespace: metal-lb
+> spec:
+>   myASN: 64512
+>   peerASN: 64512
+>   peerAddress: 10.0.0.1
+> 
+> ---
+> apiVersion: metallb.io/v1beta1
+> kind: BGPAdvertisement
+> metadata:
+>   name: bgp-advertisement
+>   namespace: metal-lb
+> spec:
+>   ipAddressPools:
+>   - production-pool
+> ```
+
+## 📊 Monitoring Integration
+
+```yaml
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: metallb-monitor
+  namespace: metal-lb
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: metallb
+  endpoints:
+  - port: monitoring
+```
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Symptoms | Solution |
+|-------|----------|----------|
+| **No External IP** | Service shows `<pending>` | Verify IPAddressPool configuration |
+| **IP Conflicts** | Connectivity issues | Check IP range doesn't overlap with DHCP |
+| **ARP Problems** | Intermittent access | Review L2Advertisement settings |
+
+### Debug Commands
+
+```bash
+# Check MetalLB controller logs
+kubectl logs -n metal-lb deployment/metallb-controller
+
+# Check speaker logs
+kubectl logs -n metal-lb daemonset/metallb-speaker
+
+# View MetalLB resources
+kubectl get ipaddresspools -n metal-lb
+kubectl get l2advertisements -n metal-lb
 ```

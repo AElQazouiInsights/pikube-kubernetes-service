@@ -1,0 +1,4 @@
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=https://docs.confluent.io/platform/current/schema-registry/fundamentals/index.html
+HostUrl=https://docs.confluent.io/platform/current/_images/schema-registry-and-kafka.png

@@ -1,81 +1,262 @@
 ---
-title: K3S Networking
+title: K3s Networking Overview
 permalink: /docs/5-networking/1-k3s-networking
-description: An overview of the default networking components in K3S and instructions for their configuration in PiKube Kubernetes Service.
-last_modified_at: "28-02-2024"
+description: Comprehensive overview of K3s default networking components and configuration options for the PiKube Kubernetes Service cluster.
+last_modified_at: "2025-07-11"
 ---
 
 # {{ $frontmatter.title }}
 
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [Default Networking Components in K3S](#default-networking-components-in-k3s)
-  - [Configuring Flannel as the CNI](#configuring-flannel-as-the-cni)
-  - [CoreDNS Configuration in K3S](#coredns-configuration-in-k3s)
-  - [Configuring Traefik as the Ingress Controller](#configuring-traefik-as-the-ingress-controller)
-  - [Integrating Klipper-LB as the Load Balancer](#integrating-klipper-lb-as-the-load-balancer) -->
+## Overview
 
-## Default Networking Components in K3S
+K3s comes with a complete networking stack pre-configured and ready to use. This integrated approach simplifies cluster deployment while maintaining the flexibility to customize networking components as needed.
 
-K3S includes a set of pre-configured networking components essential for enabling basic Kubernetes networking capabilities:
+## Default Networking Stack
 
-- [**`Flannel`**](https://github.com/flannel-io/flannel): A **`Container Networking Interface`** (CNI) plugin used to facilitate pod-to-pod communication.
-- [**`CoreDNS`**](https://coredns.io/): Provides DNS services for the cluster, enabling name resolution across services and pods.
-[**`Traefik`**](https://traefik.io/): An ingress controller that manages external access to services within the cluster.
-- [**`Klipper Load Balancer`**](https://github.com/k3s-io/klipper-lb): An internal load balancer for distributing traffic to services.
+K3s includes four core networking components that provide complete cluster connectivity:
+
+### Container Networking Interface (CNI)
+
+- **[Flannel](https://github.com/flannel-io/flannel)**: Default CNI plugin enabling pod-to-pod communication across nodes using VXLAN overlay networking
+
+### DNS Services
+
+- **[CoreDNS](https://coredns.io/)**: Cluster DNS server providing service discovery and name resolution for pods and services
+
+### Ingress Controller
+
+- **[Traefik](https://traefik.io/)**: HTTP reverse proxy and load balancer managing external access to cluster services
+
+### Load Balancing
+
+- **[Klipper Load Balancer](https://github.com/k3s-io/klipper-lb)**: Internal load balancer distributing traffic to services of type LoadBalancer
 
 > [!TIP]
-> Core Kubernetes networking concepts and helpful resources are available in the [**`Further Reading: Kubernetes Networking Fundamentals`**](../13-further-reading/kubernetes-networking-fundamentals.md)
+> **Additional Resources**
+>
+> For deeper understanding of Kubernetes networking concepts, see [Kubernetes Networking Fundamentals](../13-further-reading/kubernetes-networking-fundamentals.md)
 
-## Configuring Flannel as the CNI
+## Flannel CNI Configuration
 
-By default, K3S utilizes Flannel as its CNI, with **`Virtual Extensible Local Area Network`** (VXLAN) as the default backend mechanism. Flannel operates within the K3S process as a backend routine.
+Flannel serves as the default Container Network Interface (CNI) plugin in K3s, implementing **Virtual Extensible Local Area Network (VXLAN)** overlay networking. Flannel runs as an integrated component within the K3s server process, eliminating the need for separate daemon management.
 
-To customize network settings, K3S allows the specification of server installation options for defining pod and service network **`Classless Inter-Domain Routing`** (CIDRs), as well as selecting the Flannel backend.
+### Network Configuration Options
 
-| k3s server option | default value | Description |
-| ----- | ---- |---- |
-| `--cluster-cidr` | "10.42.0.0/16" | CIDR for pod IP allocation |
-| `--service-cidr` | "10.43.0.0/16" | CIDR for service IP allocation |
-| `--flannel-backend` | "vxlan" | Backend type (none, vxlan, ipsec, host-gw, wireguard) |
+K3s provides several server installation options to customize the cluster networking:
 
-Each node is allocated a subnet (10.42.X.0/24) from which pods receive their IP addresses.
+| Configuration Option | Default Value | Description |
+|---------------------|---------------|-------------|
+| `--cluster-cidr` | `10.42.0.0/16` | IP address range for pod allocation |
+| `--service-cidr` | `10.43.0.0/16` | IP address range for service allocation |
+| `--flannel-backend` | `vxlan` | Networking backend (`none`, `vxlan`, `ipsec`, `host-gw`, `wireguard`) |
 
-**Network Interfaces Created by Flannel:**
+### IP Address Allocation
 
-- **flannel.1:** Acts as a VXLAN Tunnel Endpoint (VTEP), facilitating overlay networking. To view the **`flannel.1`** interface details, head to a PiKube Kubernetes Service node and run the below command
+The cluster operates with a hierarchical IP allocation system:
+
+- **Cluster-wide**: The entire `10.42.0.0/16` range is available for pods
+- **Per-node**: Each node receives a `/24` subnet (e.g., `10.42.1.0/24`, `10.42.2.0/24`)
+- **Per-pod**: Individual pods receive IP addresses from their node's subnet
+
+### Network Interfaces
+
+Flannel creates two primary network interfaces on each node:
+
+#### VXLAN Tunnel Endpoint (flannel.1)
+
+The `flannel.1` interface acts as a VXLAN Tunnel Endpoint (VTEP), enabling overlay networking between nodes:
 
 ```bash
- ip -d addr show flannel.1
+# View flannel.1 interface configuration
+ip -d addr show flannel.1
 ```
 
-- **cni0:** A bridge interface providing a gateway for pod communication within the node subnet (10.42.X.1/24). To view the **`cni0`** interface details, head to a PiKube Kubernetes Service node and run the below command
+#### Container Bridge (cni0)
+
+The `cni0` bridge interface provides local connectivity and serves as the gateway for pods on each node:
 
 ```bash
- ip -d addr show cni0
+# View cni0 bridge interface configuration  
+ip -d addr show cni0
 ```
 
-Traffic between cni0 and flannel.1 is managed through IP routing enabled on each node.
+### Traffic Flow
 
-> [!CAUTION] 🔜 WORK IN PROGRESS
-TODO pikube-vxlan-network-with-flannel.drawio
+Inter-node pod communication follows this path:
 
-## CoreDNS Configuration in K3S
+1. **Pod-to-bridge**: Traffic flows from pod to local `cni0` bridge
+2. **Bridge-to-VTEP**: Linux routing directs traffic to `flannel.1` VXLAN interface
+3. **VTEP-to-VTEP**: VXLAN encapsulation enables communication between nodes
+4. **VTEP-to-bridge**: Destination node routes traffic to local `cni0` bridge
+5. **Bridge-to-pod**: Final delivery to destination pod
 
-K3S provides options to configure CoreDNS during server installation. CoreDNS is a flexible, extensible DNS server that can serve as the Kubernetes cluster DNS. Here are the configuration options available:
+### Network Architecture Diagram
 
-| k3s server option | default value | Description |
-| ----- | ---- |---- |
-| `--cluster-dns` | "10.43.0.10" | Specifies the cluster IP for the CoreDNS service. It should fall within the service CIDR range |
-| `--cluster-domain` | "cluster.local" | Defines the cluster domain |
+The following diagram illustrates how Flannel VXLAN networking enables pod-to-pod communication across nodes:
 
-## Configuring Traefik as the Ingress Controller
+```mermaid
+graph TB
+    subgraph "🖥️ Node 1 (blueberry)"
+        direction TB
+        Pod1["🐳 Pod A<br/>📍 10.42.1.10<br/>🏷️ app=frontend"]
+        CNI1["🌉 cni0 Bridge<br/>🚪 10.42.1.1/24"]
+        VTEP1["🚇 flannel.1 VTEP<br/>🔗 VXLAN ID: 1"]
+        
+        Pod1 -->|"📤 Layer 3"| CNI1
+        CNI1 -->|"🔀 Route"| VTEP1
+    end
+    
+    subgraph "🖥️ Node 2 (orange-worker)"
+        direction TB
+        Pod2["🐳 Pod B<br/>📍 10.42.2.15<br/>🏷️ app=backend"]
+        CNI2["🌉 cni0 Bridge<br/>🚪 10.42.2.1/24"]
+        VTEP2["🚇 flannel.1 VTEP<br/>🔗 VXLAN ID: 1"]
+        
+        VTEP2 -->|"🔀 Route"| CNI2
+        CNI2 -->|"📥 Layer 3"| Pod2
+    end
+    
+    subgraph "🌐 Physical Network Infrastructure"
+        direction LR
+        Switch["⚡ Network Switch<br/>🔄 L2/L3 Forwarding"]
+        Internet["🌍 External Network<br/>🛡️ Gateway"]
+        
+        Switch -.-> Internet
+    end
+    
+    VTEP1 <==>|"📦 VXLAN Tunnel<br/>🔐 UDP 8472<br/>🏃‍♂️ Encapsulated"| Switch
+    Switch <==>|"📦 VXLAN Tunnel<br/>🔐 UDP 8472<br/>🏃‍♂️ Encapsulated"| VTEP2
+    
+    %% Traffic flow annotations
+    Pod1 -.->|"1️⃣ 🎯 Target: Pod B"| CNI1
+    CNI1 -.->|"2️⃣ 🗺️ Route lookup"| VTEP1
+    VTEP1 -.->|"3️⃣ 📦 VXLAN wrap<br/>🏷️ Outer: Node1→Node2<br/>🎁 Inner: PodA→PodB"| Switch
+    Switch -.->|"4️⃣ 🚚 Forward packet"| VTEP2
+    VTEP2 -.->|"5️⃣ 📂 VXLAN unwrap"| CNI2
+    CNI2 -.->|"6️⃣ 🎯 Deliver to Pod B"| Pod2
+    
+    %% Modern styling
+    classDef podStyle fill:#667eea,stroke:#764ba2,stroke-width:3px,color:#fff
+    classDef bridgeStyle fill:#f093fb,stroke:#f5576c,stroke-width:3px,color:#fff
+    classDef vtepStyle fill:#4facfe,stroke:#00f2fe,stroke-width:3px,color:#fff
+    classDef networkStyle fill:#43e97b,stroke:#38f9d7,stroke-width:3px,color:#fff
+    classDef infraStyle fill:#fa709a,stroke:#fee140,stroke-width:3px,color:#fff
+    
+    class Pod1,Pod2 podStyle
+    class CNI1,CNI2 bridgeStyle
+    class VTEP1,VTEP2 vtepStyle
+    class Switch,Internet infraStyle
+```
 
-[**`Traefik`**](https://traefik.io/) is an HTTP reverse proxy and load balancer designed to ease microservices deployment. It comes embedded with K3S installations and is deployed by default. However, for users seeking more control over Traefik's version and configuration, it's possible to disable the default installation and proceed with a manual setup.
+**🔄 Traffic Flow Steps:**
 
-To exclude the embedded Traefik during K3S installation, use the **`--disable traefik`** option. Additional configuration details and advanced options for Traefik are available in the [**`Traefik Ingress Controller Documentation`**](../5-networking/3-ingress-controller-traefik.md).
+1. **🎯 Pod-to-Bridge**: Pod A (frontend) sends HTTP request to Pod B (backend) via local cni0 bridge
+2. **🗺️ Bridge-to-VTEP**: Linux routing table directs cross-node traffic to flannel.1 VXLAN interface  
+3. **📦 VXLAN Encapsulation**: VTEP wraps original packet with VXLAN + UDP + IP headers
+4. **🚚 Network Transport**: Encapsulated packet travels through physical network infrastructure
+5. **📂 Decapsulation**: Destination VTEP removes VXLAN wrapper and extracts original packet
+6. **🎯 Final Delivery**: Target bridge delivers packet to Pod B on the correct network interface
 
-## Integrating Klipper-LB as the Load Balancer
+**🔧 Technical Details:**
 
-By default, K3S deploys the [**`Klipper Load Balancer`**](https://github.com/k3s-io/klipper-lb) upon cluster initialization. In scenarios where other alternative load balancing solutions like `Metal LB` or `Cilium`  is preferred, it's necessary to disable `Klipper-LB`.
+- **VXLAN ID**: All nodes use VXLAN ID `1` for the overlay network
+- **UDP Port**: VXLAN traffic uses UDP port `8472` by default
+- **MTU**: Typically 1450 bytes to account for VXLAN overhead (50 bytes)
+- **Subnet Allocation**: Each node gets a unique `/24` subnet from the cluster CIDR
 
-Disabling the embedded load balancer can be achieved by configuring all servers in the cluster with the **`--disable servicelb option`**. For those opting to install **`Metal LB`**, guidance and installation instructions are provided in the [**`Metal LB Documentation`**](../5-networking/2-load-balancer-metal-lb.md).
+## CoreDNS Configuration
+
+CoreDNS provides DNS services for the Kubernetes cluster, enabling service discovery and name resolution. K3s deploys CoreDNS automatically and offers configuration options during cluster initialization.
+
+### DNS Configuration Options
+
+| Configuration Option | Default Value | Description |
+|---------------------|---------------|-------------|
+| `--cluster-dns` | `10.43.0.10` | IP address of the CoreDNS service (must be within service CIDR) |
+| `--cluster-domain` | `cluster.local` | Domain suffix for cluster services |
+
+### Service Discovery
+
+CoreDNS enables pods to resolve services using standard DNS queries:
+
+```bash
+# Examples of DNS resolution within the cluster
+nslookup kubernetes.default.svc.cluster.local
+nslookup my-service.my-namespace.svc.cluster.local
+```
+
+### DNS Records
+
+CoreDNS automatically creates DNS records for:
+
+- **Services**: `<service-name>.<namespace>.svc.cluster.local`
+- **Pods**: `<pod-ip>.<namespace>.pod.cluster.local` (when hostname/subdomain specified)
+- **Headless Services**: Individual pod IPs for StatefulSets and headless services
+
+## Traefik Ingress Controller
+
+[Traefik](https://traefik.io/) serves as the default ingress controller in K3s, providing HTTP reverse proxy and load balancing capabilities for external access to cluster services. Traefik is automatically deployed during cluster initialization.
+
+### Traefik Default Behavior
+
+- **Automatic deployment**: Traefik is installed and configured automatically
+- **Dynamic configuration**: Automatically discovers services and routes through Kubernetes Ingress resources
+- **Load balancing**: Distributes incoming requests across service endpoints
+
+### Custom Configuration
+
+For advanced use cases requiring specific Traefik versions or custom configurations:
+
+```bash
+# Disable default Traefik during K3s installation
+curl -sfL https://get.k3s.io | sh -s - server --disable traefik
+```
+
+> [!TIP]
+> **Advanced Configuration**
+>
+> For detailed Traefik configuration options and manual installation, see [Traefik Ingress Controller Documentation](../5-networking/3-ingress-controller-traefik.md)
+
+## Klipper Load Balancer
+
+K3s includes [Klipper Load Balancer](https://github.com/k3s-io/klipper-lb) as the default solution for services of type `LoadBalancer`. Klipper-LB provides basic load balancing functionality suitable for development and small production environments.
+
+### Klipper-LB Default Behavior
+
+- **Automatic deployment**: Installed by default with K3s
+- **Service integration**: Automatically provisions external IPs for LoadBalancer services
+- **Simple configuration**: Requires minimal setup and maintenance
+
+### Alternative Solutions
+
+For production environments requiring advanced load balancing features, consider these alternatives:
+
+#### MetalLB
+
+```bash
+# Disable default load balancer during installation
+curl -sfL https://get.k3s.io | sh -s - server --disable servicelb
+```
+
+> [!TIP]
+> **MetalLB Installation**
+>
+> For MetalLB deployment and configuration, see [MetalLB Documentation](../5-networking/2-load-balancer-metal-lb.md)
+
+#### Cilium Load Balancing
+
+Cilium provides advanced networking capabilities including load balancing:
+
+> [!TIP]
+> **Cilium Configuration**
+>
+> For Cilium CNI and load balancing setup, see [Cilium Documentation](../5-networking/5-cilium-kubernetes-cni.md)
+
+## Summary
+
+K3s provides a complete networking solution out of the box:
+
+- **Flannel CNI**: Handles pod-to-pod communication via VXLAN overlay
+- **CoreDNS**: Provides cluster DNS and service discovery
+- **Traefik**: Manages ingress traffic and external access
+- **Klipper-LB**: Offers basic load balancing for development use

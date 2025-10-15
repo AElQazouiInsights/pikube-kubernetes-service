@@ -10,7 +10,7 @@ This guide explains how to build and deploy a **Debug Pod** in PiKube Kubernetes
 
 ## Create the Dockerfile
 
-Below is a sample `Dockerfile` that uses **Ubuntu 22.04** as the base image and installs commonly used debugging tools (networking, file editors, Python, etc.). If you want to add or remove tools, adjust as needed.
+Below is a sample `Dockerfile` that uses **Ubuntu 24.04** as the base image and installs commonly used debugging tools (networking, file editors, Python, etc.). If you want to add or remove tools, adjust as needed.
 
 ```dockerfile
 # Dockerfile for PiKube Debug Pod

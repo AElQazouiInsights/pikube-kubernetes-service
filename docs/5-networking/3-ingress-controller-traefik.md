@@ -568,7 +568,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-  - match: Host(`traefik.picluster.homelab.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+  - match: Host(`traefik.picluster.quantfinancehub.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
     kind: Rule
     services:
     - name: api@internal
@@ -584,58 +584,3 @@ kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f traefik-ingressroute.ya
 ``` -->
 
 After applying these manifests, you can access the Traefik Dashboard through the configured domain (https://traefik.picluster.quantfinancehub.com). This setup provides secure and authenticated access to the dashboard, leveraging cert-manager for certificate management and Traefik’s advanced routing capabilities.
-
-Check ClusterIssuer:
-
-bash
-Copy code
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get clusterissuer letsencrypt-clusterissuer-cloudflare -o yaml
-Check Certificates:
-
-bash
-Copy code
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get certificates -n [namespace] -o yaml
-Replace [namespace] with the namespace where your certificates are deployed (e.g., cert-manager, traefik, etc.).
-
-Check Ingress Resources:
-
-bash
-Copy code
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get ingress -n [namespace] -o yaml
-Replace [namespace] with the namespace where your Ingress resources are deployed (e.g., traefik).
-
-Check Services:
-
-bash
-Copy code
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get services -n [namespace] -o yaml
-Check MetalLB Configuration (if applicable):
-
-bash
-Copy code
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get IPAddressPool -n metal-lb -o yaml
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get L2Advertisement -n metal-lb -o yaml
-Check Pods' Status in relevant namespaces:
-
-bash
-Copy code
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get pods -n [namespace]
-Repeat this command for each relevant namespace (cert-manager, traefik, metal-lb, etc.) to ensure all pods are running correctly.
-
-Check for Events or Errors:
-If any resource is not behaving as expected, you can inspect it further. For example, to check events related to a specific resource:
-
-bash
-Copy code
-kubectl --kubeconfig=/home/pi/.kube/config.yaml describe [resource-type] 
-
-
-
-ssh -i ~/.ssh/gateway-pi -v pi@orange-worker.picluster.homelab.com
-
-curl -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" -H "Authorization: Bearer -EDFUXl002W7rRjJgOpPS68DiY1tQANSLmaG0KvN" -H "Content-Type:application/json"
-
-kubectl create secret generic cloudflare-api-token-secret \
---from-literal=api-token=-EDFUXl002W7rRjJgOpPS68DiY1tQANSLmaG0KvN \
---namespace cert-manager \
---kubeconfig=/home/pi/.kube/config.yaml

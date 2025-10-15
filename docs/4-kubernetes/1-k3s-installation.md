@@ -1,8 +1,8 @@
 ---
-title: K3S Installation
-permalink: /documentation/5-networking/2-k3s-installation/
-description: How to install K3s, a lightweight kubernetes distribution, in the PiKube Kubernetes Service. Single master node and high availability deployment can be used.
-last_modified_at: "12-11-2023"
+title: K3s Installation Guide
+permalink: /documentation/kubernetes/k3s-installation/
+description: Complete guide to installing K3s, a lightweight Kubernetes distribution, in the PiKube Kubernetes Service with both single master and high availability deployment configurations.
+last_modified_at: "2025-07-11"
 ---
 
 # {{ $frontmatter.title }}
@@ -14,22 +14,6 @@ last_modified_at: "12-11-2023"
     height="%">
 </p>
 
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [Node Pre-configuration](#node-pre-configuration)
-  - [Configuring a High-Availability K3s Cluster](#configuring-a-high-availability-k3s-cluster)
-    - [Load Balancer setup with HA Proxy](#load-balancer-setup-with-ha-proxy)
-    - [Setting Up Master Nodes](#setting-up-master-nodes)
-    - [Update Master Nodes](#update-master-nodes)
-    - [Setting Up Worker Nodes](#setting-up-worker-nodes)
-    - [Update Worker Nodes](#update-worker-nodes)
-  - [Interacting with K3S](#interacting-with-k3s)
-    - [Leveraging kubectl](#leveraging-kubectl)
-    - [Leveraging Helm](#leveraging-helm)
-    - [Leveraging K9S](#leveraging-k9s)
-  - [K3S Cluster automatic upgrade](#k3s-cluster-automatic-upgrade)
-  - [Resetting the K3S Cluster](#resetting-the-k3s-cluster)
-  - [Enable Ansible-driven remote deployment for K3S Cluster](#enable-ansible-driven-remote-deployment-for-k3s-cluster) -->
-
 <p align="center">
     <img alt="k3s-installation"
     src="../resources/networking/how-k3s-works.svg"
@@ -37,35 +21,52 @@ last_modified_at: "12-11-2023"
     height="%">
 </p>
 
-**`K3S`** simplifies the traditional Kubernetes setup by encapsulating all its processes into a singular binary. This binary can be rolled out on servers, adopting one of two specific roles: either **`k3s-server`** or **`k3s-agent`**.
+## Overview
 
-- **`k3s-server`**: This role initializes all the control plane processes of Kubernetes, including the API, Scheduler, and Controller. Additionally, it also runs worker processes such as Kubelet and kube-proxy. This means that a master node can double up as a worker node too.
+**K3s** is a lightweight, CNCF-certified Kubernetes distribution designed for edge computing, IoT, and resource-constrained environments. It packages all Kubernetes components into a single binary, significantly simplifying deployment and management.
 
-- **`k3s-agent`**: This role focuses solely on the worker processes of Kubernetes, which are the Kubelet and kube-proxy.
+### K3s Architecture Components
 
-For the setup, the Kubernetes cluster will span 7 nodes
+K3s operates with two distinct node roles:
 
-- **`blueberry-master`** - *node 1*
-- **`strawberry-master`** - *node 2*
-- **`blackberry-master`** - *node 3*
-- **`cranberry-worker`** - *node 4*
-- **`raspberry-worker`** - *node 5*
-- **`orange-worker`** - *node 6*
-- **`mandarine-worker`** - *node 7*
+- **k3s-server**: Runs the complete Kubernetes control plane (API server, scheduler, controller manager, etcd) plus worker components (kubelet, kube-proxy). Master nodes can simultaneously function as worker nodes.
 
-Among these, `node 1` to `node 3` will be designated as the `control-plane`, whereas `node 4` to `node 7` will function as `worker nodes`.
+- **k3s-agent**: Runs only worker components (kubelet and kube-proxy) for dedicated worker nodes.
 
-## Node Pre-configuration
+## Target Cluster Architecture
 
-Configure iptables for Bridged Traffic to ensure iptables can observe bridged traffic
+This deployment creates a high-availability Kubernetes cluster spanning **9 nodes** (updated from the original 7-node configuration based on your actual cluster):
 
-- Load the **`br_netfilter`** kernel module
-  
+### Control Plane Nodes (3 nodes)
+
+- **blueberry-master** (10.0.0.10) - Primary master node
+- **strawberry-master** (10.0.0.11) - Secondary master node
+- **blackberry-master** (10.0.0.12) - Tertiary master node
+
+### Worker Nodes (6 nodes)
+
+- **cranberry-worker** (10.0.0.13) - Raspberry Pi worker
+- **orange-worker** (10.0.0.15) - Orange Pi worker
+- **mandarine-worker** (10.0.0.16) - Orange Pi worker
+- **lemon-worker** (10.0.0.17) - Orange Pi worker
+- **clementine-worker** (10.0.0.18) - Orange Pi worker
+- **grapefruit-worker** (10.0.0.19) - Orange Pi worker
+
+The first three nodes form a high-availability control plane using embedded etcd, while the remaining nodes serve as dedicated workers.
+
+## Prerequisites: Node Pre-configuration
+
+These steps must be completed on **all nodes** before K3s installation.
+
+### 1. Configure Bridge Networking
+
+Enable iptables to process bridged traffic by loading the required kernel module:
+
 ```bash
 echo "br_netfilter" | sudo tee /etc/modules-load.d/k8s.conf
 ```
 
-- Adjust settings to enable netfilter for bridged IPv6 and IPv4 traffic
+Configure netfilter settings for IPv4 and IPv6 bridged traffic:
 
 ```bash
 cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
@@ -74,160 +75,150 @@ net.bridge.bridge-nf-call-iptables = 1
 EOF
 ```
 
-- Apply the updated system control settings
+Apply the new system control settings:
 
 ```bash
 sudo sysctl --system
 ```
 
-> 🚨 Warning
+### 2. Disable Swap (x86 nodes only)
+
+> [!WARNING]
+> **Swap Memory Deactivation**
 >
-> - *Deactivate Swap Memory (Applicable only for x86 nodes so not applicable to Raspberry Pis & Orange Pis)*
+> This step is only required for x86 nodes and **not applicable to Raspberry Pi or Orange Pi nodes**.
 >
 > ```bash
 > sudo swapoff -a
 > ```
 >
-> *To make this change persistent, open **`/etc/fstab`** and comment out the line related to swap memory.*
+> To make this change persistent, edit `/etc/fstab` and comment out any swap-related entries.
 
-- Activate **`cgroup`** functionalities on Raspberry Pi Nodes by updating **`/boot/firmware/cmdline.txt`**.  **`cgroup`** functionalities activation on Orange Pi Nodes is not needed.
+### 3. Enable cgroup on Raspberry Pi Nodes
+
+For Raspberry Pi nodes only, enable cgroup functionality by editing `/boot/firmware/cmdline.txt`:
 
 ```bash
+# Add to the existing kernel parameters line:
 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory
 ```
 
-To apply all the changes and ensure they take effect, reboot the server or node
+> [!NOTE]
+> Orange Pi nodes do not require cgroup activation in the boot configuration.
 
-## Configuring a High-Availability K3s Cluster
+### 4. Apply Changes
 
-To achieve high availability (HA) with K3s:
-
-- Deploy a minimum of three server nodes. These nodes will manage the Kubernetes API and oversee the control plane services.
-- Utilize an embedded etcd datastore, a shift from the default embedded SQLite used in single-server configurations.
-
-<p align="center">
-    <img alt="k3s-installation"
-    src="../resources/networking/k3s-high-availability.drawio.svg"
-    width="%"
-    height="%">
-</p>
-
-<a id="load-balancer-setup-with-ha-proxy"></a>
-
-### Load Balancer setup with HA Proxy
-
-For continuous availability of the Kubernetes API, implement a load balancer. In this setup, HAProxy will be used, a prominent network load balancer.
-
-> 📌 **`Note:`**
->
-> *For HA installations with K3s, configuration parameters will be supplied via config files rather than direct arguments or environment variables during installation.*
->
-> *HAProxy load balancer will reside on the gateway node.*
->
-> 📢 **`Important:`**
->
-> *This specific configuration presents a single point of failure since HAProxy isn't in an HA mode. To achieve a genuine high-availability setup for the load balancer, pair HAProxy with Keepalived.*
-
-- Installing and Configuring **`HAProxy`**
+Reboot all nodes to ensure the configuration changes take effect:
 
 ```bash
-sudo apt install haproxy
+sudo reboot
 ```
 
-- Edit the HAProxy configuration at **`/etc/haproxy/haproxy.cfg`**
+## High Availability K3s Cluster Setup
+
+### Load Balancer Configuration with HAProxy
+
+To ensure continuous availability of the Kubernetes API, we'll deploy HAProxy as a load balancer on the gateway node.
+
+> [!IMPORTANT]
+> **Single Point of Failure Warning**
+>
+> This HAProxy configuration represents a single point of failure. For true high availability, combine HAProxy with Keepalived or use an external load balancer solution.
+
+#### Install and Configure HAProxy
+
+Install HAProxy on the gateway node:
+
+```bash
+sudo apt install haproxy -y
+```
+
+Create the HAProxy configuration file at `/etc/haproxy/haproxy.cfg`:
 
 ```ini
 #---------------------------------------------------------------------
 # Global settings
 #---------------------------------------------------------------------
 global
-  # Define the logging services
-  log /dev/log  local0
-  log /dev/log  local1 notice
-  
-  # Specify the HAProxy user and group
-  user haproxy
-  group haproxy
-
-  # Run as a daemon
-  daemon
-  
-  # Chroot directory for added security
-  chroot /var/lib/haproxy
-
-  # Admin socket for management
-  stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
-  stats timeout 30s
+    # Logging configuration
+    log /dev/log local0
+    log /dev/log local1 notice
+    
+    # Process configuration
+    user haproxy
+    group haproxy
+    daemon
+    
+    # Security configuration
+    chroot /var/lib/haproxy
+    
+    # Management interface
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
 
 #---------------------------------------------------------------------
 # Default settings
 #---------------------------------------------------------------------
 defaults
-  # Use the global logging settings
-  log global
-  
-  # Mode & options
-  mode http
-  option httplog
-  option dontlognull
-
-  # Retry settings
-  retries 3
-
-  # Timeouts for various operations
-  timeout http-request 10s
-  timeout queue 20s
-  timeout connect 10s
-  timeout client 1h
-  timeout server 1h
-  timeout http-keep-alive 10s
-  timeout check 10s
-
-  # HTTP error files
-  errorfile 400 /etc/haproxy/errors/400.http
-  errorfile 403 /etc/haproxy/errors/403.http
-  errorfile 408 /etc/haproxy/errors/408.http
-  errorfile 500 /etc/haproxy/errors/500.http
-  errorfile 502 /etc/haproxy/errors/502.http
-  errorfile 503 /etc/haproxy/errors/503.http
-  errorfile 504 /etc/haproxy/errors/504.http
+    # Logging
+    log global
+    
+    # Connection mode and options
+    mode http
+    option httplog
+    option dontlognull
+    
+    # Retry and timeout configuration
+    retries 3
+    timeout http-request 10s
+    timeout queue 20s
+    timeout connect 10s
+    timeout client 1h
+    timeout server 1h
+    timeout http-keep-alive 10s
+    timeout check 10s
+    
+    # Error page configuration
+    errorfile 400 /etc/haproxy/errors/400.http
+    errorfile 403 /etc/haproxy/errors/403.http
+    errorfile 408 /etc/haproxy/errors/408.http
+    errorfile 500 /etc/haproxy/errors/500.http
+    errorfile 502 /etc/haproxy/errors/502.http
+    errorfile 503 /etc/haproxy/errors/503.http
+    errorfile 504 /etc/haproxy/errors/504.http
 
 #---------------------------------------------------------------------
-# Frontend for Kubernetes API Server
+# Kubernetes API Server Frontend
 #---------------------------------------------------------------------
 frontend k8s_apiserver
-    # Listen on all interfaces on port 6443
+    # Listen configuration
     bind *:6443
-    
-    # TCP mode with logging
     mode tcp
     option tcplog
-
-    # Send incoming traffic to the backend
+    
+    # Route to backend
     default_backend k8s_controlplane
 
 #---------------------------------------------------------------------
-# Backend for Kubernetes Control Plane
+# Kubernetes Control Plane Backend
 #---------------------------------------------------------------------
 backend k8s_controlplane
-    # Health check settings
+    # Health check configuration
     option httpchk GET /healthz
     http-check expect status 200
-
-    # TCP mode with SSL checks
+    
+    # Connection configuration
     mode tcp
     option ssl-hello-chk
-
-    # Load balancing strategy
     balance roundrobin
-
-    # List of control plane nodes
+    
+    # Control plane nodes
     server blueberry-master 10.0.0.10:6443 check
     server strawberry-master 10.0.0.11:6443 check
     server blackberry-master 10.0.0.12:6443 check
 
 #---------------------------------------------------------------------
-# Stats settings (add this section to resolve the warning)
+# Statistics Interface
 #---------------------------------------------------------------------
 listen stats
     bind *:9000
@@ -235,58 +226,62 @@ listen stats
     stats enable
     stats hide-version
     stats uri /stats
-    stats realm Haproxy\ Statistics
+    stats realm HAProxy\ Statistics
     stats auth admin:admin
-
-    # Set the required timeouts for the 'stats' section
-    timeout client  10m
+    
+    # Required timeouts for stats section
+    timeout client 10m
     timeout connect 10m
-    timeout server  10m
+    timeout server 10m
 ```
 
-With this setup, **`HAProxy`** will distribute API server requests (on TCP port 6443) between the three master nodes using a **`round-robin strategy`**. The designated IP address for the Kubernetes API corresponds to the gateway's IP.
+#### Start and Enable HAProxy
 
-- Restart HAProxy
-
-```bash
-sudo systemctl restart haproxy
-```
-
-- Check HAProxy config is valid
+Validate the configuration:
 
 ```bash
 sudo haproxy -c -f /etc/haproxy/haproxy.cfg
 ```
 
-- Enable HAProxy at Boot
+Start and enable HAProxy:
 
 ```bash
-systemctl enable haproxy
+sudo systemctl restart haproxy
+sudo systemctl enable haproxy
 ```
 
-### Setting Up Master Nodes
+### Master Node Configuration
 
-> 🚨 **`IMPORTANT`**
->
-> *Before going further, [**`Node Pre-configuration`**](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/documentation/2.4-k3s-installation.md#1-node-pre-configuration) need to be completed.*
+> [!IMPORTANT]
+> Complete the [Node Pre-configuration](#prerequisites-node-pre-configuration) steps before proceeding.
 
-For a High-Availability configuration, the embedded etcd datastore will be utilized. A comprehensive guide can be found in the K3S documentation under [**`High Availability with Embedded etcd`**](https://docs.k3s.io/datastore/ha-embedded)
+#### 1. Prepare Master Configuration Directory
 
-- Initialize Configuration Directory
+Create the K3s configuration directory on all master nodes:
 
 ```bash
 sudo mkdir -p /etc/rancher/k3s
 ```
 
-- Establish a shared cluster token to be stored in **`/etc/rancher/k3s/cluster-token`**. This token acts as a shared secret for all cluster nodes—both master and worker. Generate a random token, insert it in **`/etc/rancher/k3s/cluster-token`** file and grant it the right permissions.
+#### 2. Generate and Distribute Cluster Token
+
+Create a shared cluster token for secure communication between nodes:
 
 ```bash
+# Generate a secure random token
 PIKUBE_TOKEN=$(openssl rand -base64 32)
+
+# Store the token (replace 'secret1' with your generated token)
 echo "secret1" | sudo tee /etc/rancher/k3s/cluster-token
 sudo chmod 600 /etc/rancher/k3s/cluster-token
 ```
 
-- Craft the K3S Kubelet Configuration in **`/etc/rancher/k3s/kubelet.config`** to use **`--token-file`** argument during installation instead of the **`K3S_TOKEN`** environment variable
+> [!NOTE]
+> Use the same token on all cluster nodes (both masters and workers).
+
+#### 3. Create Worker Kubelet Configuration
+
+Create the kubelet configuration file at `/etc/rancher/k3s/kubelet.config`:
 
 ```yaml
 apiVersion: kubelet.config.k8s.io/v1beta1
@@ -295,102 +290,94 @@ shutdownGracePeriod: 30s
 shutdownGracePeriodCriticalPods: 10s
 ```
 
-- Formulate a K3S configuration file at **`/etc/rancher/k3s/config.yaml`** to activates Kubernetes' "Graceful Node Shutdown" feature
+#### 4. Create K3s Configuration
+
+Create the main K3s configuration file at `/etc/rancher/k3s/config.yaml`:
 
 ```yaml
+# Authentication
 token-file: /etc/rancher/k3s/cluster-token
+
+# Cluster identification
+cluster-name: pikube-cluster
+
+# Disable default components (replaced by custom implementations)
 disable:
-- local-storage
-- servicelb
-- traefik
+  - local-storage    # Using Longhorn for distributed storage
+  - servicelb        # Using MetalLB for load balancing
+  - traefik          # Using NGINX Ingress Controller
+
+# Monitoring configuration
 etcd-expose-metrics: true
+
+# Controller Manager configuration
 kube-controller-manager-arg:
-- bind-address=0.0.0.0
-- terminated-pod-gc-threshold=10
+  - bind-address=0.0.0.0
+  - terminated-pod-gc-threshold=10
+
+# Kube-proxy configuration
 kube-proxy-arg:
-- metrics-bind-address=0.0.0.0
+  - metrics-bind-address=0.0.0.0
+
+# Scheduler configuration
 kube-scheduler-arg:
-- bind-address=0.0.0.0
+  - bind-address=0.0.0.0
+
+# Kubelet configuration
 kubelet-arg:
-- config=/etc/rancher/k3s/kubelet.config
+  - config=/etc/rancher/k3s/kubelet.config
+
+# Master node taint (prevents scheduling workloads on masters)
 node-taint:
-- node-role.kubernetes.io/master=true:NoSchedule
+  - node-role.kubernetes.io/master=true:NoSchedule
+
+# TLS Subject Alternative Names (includes load balancer)
 tls-san:
-- 10.0.0.1
-- gateway.picluster.homelab.com
+  - 10.0.0.1
+  - gateway.picluster.quantfinancehub.com
+
+# Kubeconfig permissions and naming
 write-kubeconfig-mode: 644
 ```
 
-> 📌 Note
->
-> *The configuration parameters mirror the command-line arguments usually used with K3S. For instance, **`token-file: /etc/rancher/k3s/cluster-token`** equates to **`--token-file /etc/rancher/k3s/cluster-token`***
+#### 5. Install Primary Master Node
 
-- In this setup, we're emphasizing:
-
-  - The use of the **`token-file`** parameter instead of the **`K3S_TOKEN`** environment variable
-  - The inclusion of the K3S API load balancer IP via the **`tls-san`** parameter for the TLS certificate
-  - The exposition of etcd metrics with **`etcd-expose-metrics`**
-
-- Deploy the Primary Master Node **`blueberry-master`**
+On **blueberry-master**, initialize the cluster:
 
 ```bash
 curl -sfL https://get.k3s.io | sh -s - server --cluster-init
 ```
 
-- Roll Out the Secondary Master Nodes **`strawberry-master`**, and **`blackberry-master`**
+#### 6. Install Secondary Master Nodes
+
+On **strawberry-master** and **blackberry-master**, join the cluster:
 
 ```bash
-curl -sfL https://get.k3s.io | sudo sh -s - server --server https://gateway.picluster.homelab.com:6443
+curl -sfL https://get.k3s.io | sh -s - server --server https://gateway.picluster.quantfinancehub.com:6443
 ```
 
-### Update Master Nodes
+### Worker Node Configuration
 
-From **`blueberry-master`** get the node token
+#### 1. Prepare Worker Configuration Directory
 
-```bash
-node_token=$(sudo cat /var/lib/rancher/k3s/server/node-token)
-```
-
-- Stop the running Master node
-
-```bash
-sudo systemctl stop k3s
-```
-
-- Ensure *`jq`* is installed
-
-```bash
-sudo apt install jq -y
-```
-
-- Get the latest K3S version
-
-```bash
-latest_version=$(curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest | jq -r '.tag_name')
-```
-
-- Upgrade to the latest version
-
-```bash
-curl -sfL https://get.k3s.io | sudo INSTALL_K3S_VERSION=$latest_version sh -s - server --server https://gateway.picluster.homelab.com:6443 --token $node_token
-```
-
-### Setting Up Worker Nodes
-
-- Initialize Configuration Directory
+Create the K3s configuration directory on all worker nodes:
 
 ```bash
 sudo mkdir -p /etc/rancher/k3s
 ```
 
-- Retreive **`cluster-token`** used to setup the Master Nodes and insert it in **`/etc/rancher/k3s/cluster-token`**. This token acts as a shared secret for all cluster nodes—both master and worker
-  
+#### 2. Configure Cluster Token
+
+Copy the cluster token used for master nodes:
+
 ```bash
 echo "secret1" | sudo tee /etc/rancher/k3s/cluster-token
 sudo chmod 600 /etc/rancher/k3s/cluster-token
 ```
 
-- Craft the K3S Kubelet Configuration in **`/etc/rancher/k3s/kubelet.config`** to use **`--token-file`** argument during installation instead of the **`K3S_TOKEN`** environment variable
+#### 3. Create Kubelet Configuration
+
+Create the kubelet configuration file at `/etc/rancher/k3s/kubelet.config`:
 
 ```yaml
 apiVersion: kubelet.config.k8s.io/v1beta1
@@ -399,221 +386,167 @@ shutdownGracePeriod: 30s
 shutdownGracePeriodCriticalPods: 10s
 ```
 
-- Formulate a K3S configuration file at **`/etc/rancher/k3s/config.yaml`** to activates Kubernetes' "Graceful Node Shutdown" feature
+#### 4. Create Worker Configuration
+
+Create the K3s configuration file at `/etc/rancher/k3s/config.yaml`:
 
 ```yaml
+# Authentication
 token-file: /etc/rancher/k3s/cluster-token
+
+# Node labeling
 node-label:
   - 'node_type=worker'
+
+# Kubelet configuration
 kubelet-arg:
   - 'config=/etc/rancher/k3s/kubelet.config'
+
+# Kube-proxy configuration
 kube-proxy-arg:
   - 'metrics-bind-address=0.0.0.0'
 ```
 
-> 📌 Note
->
-> *This setup is equivalent to running k3s with the following arguments:*
->
-> **--token-file /etc/rancher/k3s/cluster-token**
->
-> **--node-label 'node_type=worker'**
->
-> **--kubelet-arg 'config=/etc/rancher/k3s/kubelet.config'**
->
-> **--kube-proxy-arg 'metrics-bind-address=0.0.0.0'**
+#### 5. Install Worker Nodes
 
-- Installing the Agent Node
+On each worker node, install the K3s agent:
 
 ```bash
 curl -sfL https://get.k3s.io | sh -s - agent --server https://gateway.picluster.quantfinancehub.com:6443
 ```
 
-- Label the Worker Nodes from within **`gateway`**
+#### 6. Label Worker Nodes
+
+From the gateway node, apply worker labels:
 
 ```bash
 kubectl label nodes <worker-node-name> node-role.kubernetes.io/worker=worker
 ```
 
-### Update Worker Nodes
+## Cluster Management
 
-From **`blueberry-master`** get the node token
+### Client Tools Installation
 
-```bash
-node_token=$(sudo cat /var/lib/rancher/k3s/server/node-token)
-```
+#### Install kubectl
 
-On target node, export the token retrieved
+Download and install kubectl on the gateway node:
 
 ```bash
-export node_token=Master_Node_Key
+# Download kubectl for ARM64
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+
+# Make executable and install
+chmod +x kubectl
+sudo mv kubectl /usr/local/bin/
 ```
 
-- Stop the running Worker node
+#### Install Helm
+
+Install Helm package manager:
 
 ```bash
-sudo systemctl stop k3s-agent
+# Download Helm installation script
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+
+# Make executable and run
+chmod 700 get_helm.sh
+./get_helm.sh
+
+# Clean up
+rm get_helm.sh
 ```
 
-- Ensure *`jq`* is installed
+#### Install K9s
+
+Install K9s terminal UI for Kubernetes:
 
 ```bash
-sudo apt install jq -y
+# Download, extract, and install K9s
+curl -s https://api.github.com/repos/derailed/k9s/releases/latest \
+  | grep "browser_download_url.*Linux_arm64.tar.gz" \
+  | cut -d : -f 2,3 \
+  | tr -d \" \
+  | wget -qi -
+
+tar -zxvf k9s_Linux_arm64.tar.gz k9s \
+  && sudo mv k9s /usr/local/bin/ \
+  && rm k9s_Linux_arm64.tar.gz
 ```
 
-- Get the latest K3S version
+### Kubeconfig Setup
 
-```bash
-latest_version=$(curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest | jq -r '.tag_name')
-```
+Configure remote access to the cluster from the gateway:
 
-- Upgrade to the latest version
+#### 1. Copy Configuration from Master
 
-```bash
- curl -sfL https://get.k3s.io | K3S_URL=https://gateway.picluster.quantfinancehub.com:6443 K3S_TOKEN="$node_token" INSTALL_K3S_VERSION="$latest_version" sh -
-```
-
-## Interacting with K3S
-
-To set up remote access to the Kubernetes Cluster from **`gateway`**, begin by retrieving the **`k3s-config.yaml`** file from the primary master node, **`blueberry-master`**. This file, integral to K3s configuration, contains essential information such as:
-
-- **`Kubernetes Configuration`**: Standard settings for your Kubernetes cluster, as Kubernetes typically relies on YAML files for configuration.
-
-- **`Cluster Settings`**: Specific settings for the K3s distribution, including server URLs and authentication data, crucial for the operation and communication of K3s nodes and clients within the cluster.
-
-- **`Context and Credential Information`**: Details defining default clusters, users, and namespaces, along with user credentials like client certificates or tokens.
-
-- **`Client Configuration`**: This enables tools like kubectl, the Kubernetes command-line tool, to interact with your K3s cluster when used as a kubeconfig file.
-
-- **`Edge Computing Optimizations`**: Given K3s’s emphasis on edge computing, the file may contain configurations tailored for low-resource environments, aiming to reduce memory and CPU usage.
-
-Follow these commands to transfer and configure the file:
-
-- On **`blueberry-master`**: copy **`k3s.yaml`**, setting appropriate permissions:
+On **blueberry-master**:
 
 ```bash
 sudo cp /etc/rancher/k3s/k3s.yaml ~/k3s.yaml
 sudo chown pi:users ~/k3s.yaml
 ```
 
-- On **`gateway`**: create a **`.kube`** folder and copy **`k3s.yaml`** from **`blueberry-master`**, renaming it to **`config.yaml`**.
+#### 2. Transfer to Gateway and Configure
 
-- Modify the server address to match the gateway's IP instead of the default loopback address:
-
-```bash
-sudo scp -i ~/.ssh/gateway-pi pi@blueberry-master:~/k3s.yaml ~/.kube/config.yaml
-sudo chown root:root /home/pi/.kube -R
-sudo chmod 644 /home/pi/.kube/config.yaml
-sudo nano ~/.kube/config.yaml
-# In the file, replace 'server: https://127.0.0.1:6443' with 'server: https://10.0.0.1:6443'
-```
-
-### Leveraging kubectl
-
-Install **`kubectl`**, Kubernetes's command-line tool, on the **`gateway`**:
-
-- Download the latest stable version of **`kubectl`** for Linux (ARM64 architecture):
+On **gateway**:
 
 ```bash
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+# Create .kube directory
+mkdir -p ~/.kube
+
+# Copy configuration from master
+scp -i ~/.ssh/gateway-pi pi@blueberry-master:~/k3s.yaml ~/.kube/config
+
+# Set proper permissions
+sudo chown $USER:$USER ~/.kube/config
+chmod 644 ~/.kube/config
+
+# Update server address and cluster context
+sed -i 's|server: https://127.0.0.1:6443|server: https://10.0.0.1:6443|g' ~/.kube/config
+sed -i 's|name: default|name: pikube-cluster|g' ~/.kube/config
+sed -i 's|cluster: default|cluster: pikube-cluster|g' ~/.kube/config
+sed -i 's|current-context: default|current-context: pikube-admin@pikube-cluster|g' ~/.kube/config
+
+# Add KUBECONFIG to bashrc for persistent access
+echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
+source ~/.bashrc
 ```
 
-- Make the downloaded file executable:
+## Cluster Upgrades
+
+### Semi-Automated Upgrades with System Upgrade Controller
+
+K3s supports semi-automated upgrades using Rancher's System Upgrade Controller.
+
+> [!WARNING]
+> **Not Fully Automatic**
+>
+> The System Upgrade Controller is **NOT** fully automatic. It does not automatically detect and install the latest K3s versions. Instead, it:
+>
+> - **Automates the upgrade process** (rolling updates, cordoning nodes, etc.)
+> - **Requires manual intervention** to specify which version to upgrade to
+> - **Only triggers upgrades** when you explicitly change the version in the upgrade plans
+>
+> For true automation, you would need external tools (CI/CD pipelines, GitOps, or custom scripts) to monitor for new releases and update the plans accordingly.
+
+#### 1. Install System Upgrade Controller
 
 ```bash
-chmod +x kubectl
+kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/latest/download/system-upgrade-controller.yaml
 ```
 
-Move the executable to **`/usr/local/bin`** to make it available system-wide:
+#### 2. Create Upgrade Plans
 
-```bash
-sudo mv kubectl /usr/local/bin/
-```
-
-- (Optional) Remove the downloaded file if it's no longer needed:
-
-```bash
-rm kubectl
-```
-
-### Leveraging Helm
-
-Install **`helm`**, Kubernetes's package manager, on the **`gateway`**:
-
-- Download the Helm Installation Script: This script will automatically fetch the latest version of Helm and install it:
-
-```bash
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-```
-
-- Make the downloaded file executable:
-
-```bash
-chmod 700 get_helm.sh
-```
-
-Run the Installation Script: This will install Helm on the system:
-
-```bash
-./get_helm.sh
-```
-
-- (Optional) Remove the downloaded file if it's no longer needed:
-
-```bash
-rm get_helm.sh
-```
-
-### Leveraging K9S
-
-Install **`K9s`**, on the **`gateway`**, a terminal-based UI to interact with the Kubernetes clusters, providing a more efficient and streamlined way to manage Kubernetes resources.
-
-```bash
-# Fetch the latest k9s release version, download, extract, and install it
-curl -s https://api.github.com/repos/derailed/k9s/releases/latest \
-| grep "browser_download_url.*Linux_arm64.tar.gz" \
-| cut -d : -f 2,3 \
-| tr -d \" \
-| wget -qi -
-tar -zxvf k9s_Linux_arm64.tar.gz k9s \
-&& sudo mv k9s /usr/local/bin/ \
-&& rm k9s_Linux_arm64.tar.gz
-```
-
-## K3S Cluster automatic upgrade
-
-K3s clusters can be seamlessly upgraded using the **`Rancher’s system-upgrade-controller`**. This controller utilizes a **`Custom Resource Definition`** (CRD) named **`"Plan"`** to schedule and execute upgrades in accordance with the specified upgrade plans.
-For more comprehensive details, refer to the [**`K3S Automated Upgrades documentation`**](https://docs.k3s.io/upgrades/automated).
-
-From **`gateway`**, install Rancher’s System Upgrade Controller by deploying the controller in **`pi-cluster`** using **`kubectl`**:
-
-```bash
-sudo kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f https://github.com/rancher/system-upgrade-controller/releases/latest/download/system-upgrade-controller.yaml
-```
-
-Check the output
-
-```bash
-namespace/system-upgrade created
-serviceaccount/system-upgrade created
-clusterrolebinding.rbac.authorization.k8s.io/system-upgrade created
-configmap/default-controller-env created
-deployment.apps/system-upgrade-controller created
-```
-
-To **`Configure Upgrade Plans`**, at least two separate upgrade plans needs to be set up : one for the server (master) nodes and another for the agent (worker) nodes.
-
-- Get the latest K3S version
+Get the latest K3s version:
 
 ```bash
 latest_version=$(curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest | jq -r '.tag_name')
+echo "Latest version: $latest_version"
 ```
 
-- Replace **`<new_version>`** with **`$latest_version`** value on both plans.
+Create server upgrade plan (`k3s-server-upgrade.yaml`):
 
-- Plan for Master Nodes creating **`k3s-server-upgrade.yaml`** on **`gateway`**:
-
-```bash
+```yaml
 apiVersion: upgrade.cattle.io/v1
 kind: Plan
 metadata:
@@ -628,15 +561,15 @@ spec:
         operator: Exists
   serviceAccountName: system-upgrade
   concurrency: 1
-  cordon: true  # Cordon node before upgrade
+  cordon: true
   upgrade:
     image: rancher/k3s-upgrade
-  version: <new_version>
+  version: v1.33.1+k3s1  # Replace with desired version
 ```
 
-- Plan for Worker Nodes creating **`k3s-agent-upgrade.yaml`** on **`gateway`**:
+Create agent upgrade plan (`k3s-agent-upgrade.yaml`):
 
-```bash
+```yaml
 apiVersion: upgrade.cattle.io/v1
 kind: Plan
 metadata:
@@ -650,58 +583,166 @@ spec:
       - key: node-role.kubernetes.io/control-plane
         operator: DoesNotExist
   serviceAccountName: system-upgrade
-  prepare:  # Ensures server nodes are upgraded first
+  prepare:
     image: rancher/k3s-upgrade
     args:
       - prepare
       - k3s-server
   concurrency: 1
-  cordon: true  # Cordon node before upgrade
+  cordon: true
   upgrade:
     image: rancher/k3s-upgrade
-  version: <new_version>
+  version: v1.33.1+k3s1  # Replace with desired version
 ```
 
-- Execute Upgrade Plans:
+#### 3. Apply Initial Upgrade Plans
 
 ```bash
-sudo kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f k3s-server-upgrade.yaml -f k3s-agent-upgrade.yaml
+kubectl apply -f k3s-server-upgrade.yaml -f k3s-agent-upgrade.yaml
 ```
 
-Check the output
+> [!NOTE]
+> **No Upgrade Will Happen Yet**
+>
+> Applying these plans with `version: v1.33.1+k3s1` (your current version) will NOT trigger an upgrade. The plans are now installed and waiting for a version change to trigger the upgrade process.
+
+#### 4. Trigger an Upgrade (When Needed)
+
+To actually perform an upgrade, you need to **update the version** in both plans:
 
 ```bash
-plan.upgrade.cattle.io/k3s-server created
-plan.upgrade.cattle.io/k3s-agent created
+# Get the latest available K3s version
+latest_version=$(curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest | jq -r '.tag_name')
+echo "Available version: $latest_version"
+echo "Current version: v1.33.1+k3s1"
+
+# Only proceed if you want to upgrade to this version
+# Update the server plan to the new version
+kubectl patch plan k3s-server -n system-upgrade --type='merge' -p="{\"spec\":{\"version\":\"$latest_version\"}}"
+
+# Wait for server upgrades to complete (monitor with kubectl get nodes)
+# Then update the agent plan
+kubectl patch plan k3s-agent -n system-upgrade --type='merge' -p="{\"spec\":{\"version\":\"$latest_version\"}}"
 ```
 
-## Resetting the K3S Cluster
+#### 5. Monitor the Upgrade Process
 
-To reset the K3S cluster, run the K3S uninstallation scripts on both the master and worker nodes. This process will remove the K3S installation and configurations from each node.
+```bash
+# Watch the upgrade progress
+kubectl get plans -n system-upgrade -w
+kubectl get jobs -n system-upgrade
+kubectl get pods -n system-upgrade
 
-- On Worker Nodes: Perform this step on each of the worker nodes in the cluster. Run the following command to uninstall K3S from a worker node:
+# Monitor node versions during upgrade
+watch kubectl get nodes -o wide
+```
+
+### Manual Node Updates
+
+#### Update Master Nodes
+
+- Get the node token from the primary master:
+
+```bash
+node_token=$(sudo cat /var/lib/rancher/k3s/server/node-token)
+```
+
+- Stop K3s service:
+
+```bash
+sudo systemctl stop k3s
+```
+
+- Install jq (if not already installed):
+
+```bash
+sudo apt install jq -y
+```
+
+- Get latest version and upgrade:
+
+```bash
+latest_version=$(curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest | jq -r '.tag_name')
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=$latest_version sh -s - server --server https://gateway.picluster.quantfinancehub.com:6443 --token $node_token
+```
+
+#### Update Worker Nodes
+
+- Get node token from master and export on worker:
+
+```bash
+export node_token="<token_from_master>"
+```
+
+- Stop K3s agent:
+
+```bash
+sudo systemctl stop k3s-agent
+```
+
+- Install jq and upgrade:
+
+```bash
+sudo apt install jq -y
+latest_version=$(curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest | jq -r '.tag_name')
+curl -sfL https://get.k3s.io | K3S_URL=https://gateway.picluster.quantfinancehub.com:6443 K3S_TOKEN="$node_token" INSTALL_K3S_VERSION="$latest_version" sh -
+```
+
+## Cluster Reset
+
+To completely reset the K3s cluster:
+
+### Reset Worker Nodes
+
+On each worker node:
 
 ```bash
 /usr/local/bin/k3s-agent-uninstall.sh
 sudo rm -rf /etc/rancher /var/lib/rancher /var/lib/kubelet /etc/cni /var/lib/etcd /run/k3s /run/flannel /usr/local/bin/k3s /usr/local/bin/kubectl /var/lib/containerd/
 ```
 
-- On Master Nodes: Similarly, on each master node, execute the command below to uninstall K3S:
+#### Reset Master Nodes
+
+On each master node:
 
 ```bash
 /usr/local/bin/k3s-uninstall.sh
 sudo rm -rf /etc/rancher /var/lib/rancher /var/lib/kubelet /etc/cni /var/lib/etcd /run/k3s /run/flannel /usr/local/bin/k3s /usr/local/bin/kubectl /var/lib/containerd/
 ```
 
-This approach ensures that K3S is properly removed from all nodes, effectively resetting the cluster. Remember, these commands must be executed on each node individually.
+> [!WARNING]
+> This operation is irreversible and will destroy all cluster data. Ensure you have backups of any important data before proceeding.
 
-## Enable Ansible-driven remote deployment for K3S Cluster
+## Ansible Integration
 
-To enable Ansible-driven remote deployment of pods in your K3s cluster, configure the primary master by installing the kubernetes Python package on **`blueberry-master`**. This package is necessary for the Ansible [**`kubernetes.core collection`**](https://github.com/ansible-collections/kubernetes.core) to interact with your Kubernetes cluster.
+To enable Ansible-driven deployment on the cluster, install the Kubernetes Python package on the primary master node:
 
 ```bash
+# Update PATH for local Python packages
 echo 'export PATH=$PATH:/home/pi/.local/bin' >> ~/.bashrc
 source ~/.bashrc
+
+# Install required packages
 sudo apt install python3-pip -y
 pip3 install kubernetes
+```
+
+This enables the [Ansible kubernetes.core collection](https://github.com/ansible-collections/kubernetes.core) to interact with your K3s cluster.
+
+## Verification
+
+After installation, verify your cluster status:
+
+```bash
+# Check cluster info
+kubectl cluster-info
+
+# Verify all nodes are ready
+kubectl get nodes -o wide
+
+# Check system pods
+kubectl get pods -n kube-system
+
+# View cluster resources
+kubectl get all --all-namespaces
 ```

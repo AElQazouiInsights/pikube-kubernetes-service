@@ -1,64 +1,57 @@
 ---
-title: What is this project about?
-permalink: /docs/1-project-architecture-purpose/1-project-purpose
-description: This project aims to establish a Kubernetes cluster, PiKube, at home, utilizing Raspberry Pis and Orange Pis. It focuses on automating deployment and configuration through IaC (Infrastructure as Code) and GitOps methodologies, employing tools such as Ansible and ArgoCD. Key features include automatic deployment of a K3s-based Kubernetes cluster, Longhorn for distributed block storage, Prometheus for monitoring, EFK+Loki for centralized log management, Velero and Restic for backup solutions, and Linkerd for service mesh architecture.
-last_modified_at: "31-01-2024"
+title: "PiKube: A Deep Dive into a Modern, Automated Kubernetes Platform"
+permalink: /docs/1-project-architecture-purpose/1-project-purpose-v1
+description: "This project establishes PiKube, a home-based Kubernetes cluster on ARM bare metal, emphasizing full automation, a comprehensive observability stack, and advanced workload management for microservices, real-time data, and high-performance batch processing."
+last_modified_at: "2025-07-09"
 ---
 
 # {{ $frontmatter.title }}
 
 <p align="center">
-    <img alt="pikube-logo"
-    src="/pi-thon-cube.gif"
-    width="80%"
-    height="%">
+    <img alt="pikube-logo" src="/pi-thon-cube.gif" width="80%">
 </p>
 
 ## Project Scope: PiKube Kubernetes Service
 
-The primary goal of this project is the creation of a home-based Kubernetes cluster using ARM bare metal nodes, specifically Raspberry Pis and Orange Pis. Emphasis is placed on automation of deployment and configuration, leveraging Infrastructure as Code (IaC) and GitOps approaches. This is achieved with the help of tools like [Ansible](https://docs.ansible.com/), [cloud-init](https://cloudinit.readthedocs.io/en/latest/), and [Argo CD](https://argo-cd.readthedocs.io/en/stable/).
+The primary goal of this project is to build a sophisticated, home-based Kubernetes cluster on ARM bare metal nodes (Raspberry Pis and Orange Pis). This is not just a simple cluster; it is a fully automated, observable, and extensible platform designed to explore the frontiers of modern cloud-native technologies.
 
-The project incorporates several critical services within the Kubernetes ecosystem, including:
+The project is built on two core pillars:
 
-- **Distributed Block Storage:** for POD's persistent volumes via [LongHorn](https://longhorn.io/).
-- **Backup and Restore Solution:** for the cluster using [Velero](https://velero.io/) and [Restic](https://restic.net/).
-- **Service Mesh Architecture:** facilitated by [Linkerd](https://linkerd.io/).
-- **Observability Platform:** encompassing a metrics monitoring solution with [Prometheus](https://prometheus.io/), a logging and analytics solution via the EFK+LG stack ([Elasticsearch](https://www.elastic.co/elasticsearch/)-[Fluentd](https://www.fluentd.org/)/[Fluentbit](https://fluentbit.io/)-[Kibana](https://www.elastic.co/kibana/) + [Loki](https://grafana.com/oss/loki/)-[Grafana](https://grafana.com/oss/grafana/)), and a distributed tracing solution through [Tempo](https://grafana.com/oss/tempo/).
+1. **Extreme Automation:** Leveraging Infrastructure as Code (IaC) and GitOps principles with **Ansible**, **cloud-init**, and **Argo CD**, the entire cluster lifecycle—from bare-metal provisioning to application deployment—is automated. This ensures consistency, repeatability, and rapid recovery.
 
-In addition to these services, the project project scope encompasses tools and services pivotal for exploring and understanding microservices architectures:
+2. **Deep Observability:** A comprehensive, integrated observability stack provides deep insights into the cluster's health and performance. This includes:
+    * **Metrics:** **Prometheus** for time-series monitoring and alerting.
+    * **Logs:** A dual-stack approach with **Loki** for efficient, real-time log aggregation and the **EFK stack (Elasticsearch, Fluentd/Fluentbit, Kibana)** for powerful, in-depth log analytics.
+    * **Traces:** **Grafana Tempo** for distributed tracing to understand the flow of requests across microservices.
+    * **Visualization:** **Grafana** as a single pane of glass for all metrics, logs, and traces.
 
-- **Service Mesh Architecture with [**`Linkerd`**](https://linkerd.io/):** This tool enhances service interactions, making them more secure, observable, and reliable without altering application code.
+Beyond the foundational platform, PiKube is designed to run a diverse set of modern workloads, making it an ideal environment for learning and experimentation:
 
-- **API Security:** Utilizing OAuth 2.0 and OpenID Connect, alongside an IAM solution like [**`Keycloak`**](https://www.keycloak.org/), ensures secure and authorized access across our services.
-
-- **Streaming with Kafka:** [**`Kafka`**](https://kafka.apache.org/) supports real-time data streaming and inter-service communication, crucial for dynamic microservices environments.
+-   **Microservices Architecture:** With **Linkerd** service mesh, **Keycloak** for API security (OAuth 2.0/OIDC), and **HashiCorp Vault** for secrets management, the cluster is primed for secure, reliable, and observable microservices.
+-   **Real-Time Data Streaming:** **Apache Kafka**, managed by the **Strimzi** operator, provides a robust backbone for real-time data pipelines and event-driven architectures.
+-   **High-Performance Batch Computing:** **Volcano**, a CNCF batch scheduling system, is integrated to efficiently manage and schedule high-performance computing (HPC), machine learning, and big data workloads, which are not well-served by the default Kubernetes scheduler.
+-   **Persistent Storage:** **Longhorn** provides resilient, distributed block storage for stateful applications, while **Minio** offers an S3-compatible object store.
+-   **Backup and Recovery:** **Velero** and **Restic** ensure that the cluster's state and application data are backed up and can be restored.
 
 ## Design Principles
 
-- **ARM Bare Metal Nodes:** Integration of Raspberry PI and Orange Pis nodes (ARM) within the same cluster.
-- **Lightweight Kubernetes Distribution:** Adoption of [K3S](https://k3s.io/), suitable for Raspberry PI nodes due to its reduced memory requirements.
-- **Distributed Block Storage Technology:** Preference for Kubernetes distributed storage solutions like [Rook/Ceph](https://rook.io/) or [Longhorn](https://longhorn.io/), with recent ARM 64-bit support.
-- **Commitment to Open Source:** Utilization of projects under the [CNCF: Cloud Native Computing Foundation](https://www.cncf.io/).
-- **Latest Versions for Exploration:** Utilizing the latest versions of each open-source project to explore cutting-edge Kubernetes capabilities.
-- **Deployment Automation:** Using [cloud-init](https://cloudinit.readthedocs.io/en/latest/) for initial OS setup.
-- **Configuration Automation:** Using [Ansible](https://docs.ansible.com/) for automating the configuration of cluster nodes, Kubernetes and external service installation, and initiation of cluster bootstrap.
-- **Application Provisioning with Argo CD:** Applying [Argo CD](https://argo-cd.readthedocs.io/en/stable/) for seamless Kubernetes application provisioning from a Git repository.
+-   **Heterogeneous ARM Bare Metal:** A mix of Raspberry Pi and Orange Pi nodes to explore the challenges and opportunities of a diverse hardware environment.
+-   **Lightweight & Efficient:** **K3s** as the Kubernetes distribution of choice, optimized for resource-constrained environments.
+-   **Open Source & CNCF-Aligned:** A strong commitment to using open-source technologies, with a preference for projects within the Cloud Native Computing Foundation (CNCF) ecosystem.
+-   **Cutting-Edge Exploration:** Use of the latest stable versions of all tools to stay at the forefront of the cloud-native landscape.
+-   **Declarative & Git-Driven:** All aspects of the cluster and its applications are defined declaratively in a Git repository, which serves as the single source of truth.
 
 ## Open Source Technologies: Building the Cluster
 
-The image below presents a comprehensive view of the open-source technologies utilized in constructing the cluster:
+The diagram below provides a comprehensive overview of the technology stack that powers the PiKube platform.
 
 <p align="center">
-    <img alt="pikube-technical-stacks"
-    src="../design/pikube-technical-stacks.drawio.svg"
-    width="100%"
-    height="100%">
+    <img alt="pikube-technical-stacks" src="../design/pikube-technical-stacks.drawio.svg" width="100%">
 </p>
 
 <div class="d-flex">
     <table class="table table-white table-bordered border-dark w-auto align-middle">
         <thead>
-            <!-- Table Header -->
             <tr>
                 <th></th>
                 <th></th>
@@ -74,42 +67,42 @@ The image below presents a comprehensive view of the open-source technologies ut
                 </td>
                 <td><img width="32" src="../design/icons/grafana.svg" alt="Grafana Logo"></td>
                 <td><a href="https://grafana.com/oss/grafana/">Grafana</a></td>
-                <td>Monitoring Dashboards.</td>
+                <td>Unified visualization for metrics, logs, and traces.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/kibana.svg" alt="Kibana Logo"></td>
                 <td><a href="https://www.elastic.co/kibana/">Kibana</a></td>
-                <td>Logs Analytics Dashboards.</td>
+                <td>Advanced log analytics and visualization.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/elastic.svg" alt="Elasticsearch Logo"></td>
                 <td><a href="https://www.elastic.co/elasticsearch/">Elasticsearch</a></td>
-                <td>Logs Analytics.</td>
+                <td>Full-text search and analytics engine for logs.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/tempo.svg" alt="Tempo Logo"></td>
                 <td><a href="https://grafana.com/oss/tempo/">Tempo</a></td>
-                <td>Distributed Tracing Monitoring.</td>
+                <td>High-scale distributed tracing backend.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/prometheus.svg" alt="Prometheus Logo"></td>
                 <td><a href="https://prometheus.io/">Prometheus</a></td>
-                <td>Metrics Monitoring and Alerting.</td>
+                <td>Metrics-based monitoring and alerting.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/fluentd.svg" alt="Fluentd Logo"></td>
                 <td><a href="https://www.fluentd.org/">Fluentd</a></td>
-                <td>Logs Forwarding and Distribution.</td>
+                <td>Log aggregation and forwarding.</td>
             </tr>
             <tr>
                 <td><img width="60" src="../design/icons/fluentbit.svg" alt="Fluentbit Logo"></td>
                 <td><a href="https://fluentbit.io/">Fluentbit</a></td>
-                <td>Logs Collection.</td>
+                <td>Lightweight log collection.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/loki.png" alt="Loki Logo"></td>
                 <td><a href="https://grafana.com/oss/loki/">Loki</a></td>
-                <td>Logs Aggregation.</td>
+                <td>Horizontally-scalable, multi-tenant log aggregation.</td>
             </tr>
             <!-- Layer 2: Automation -->
             <tr>
@@ -118,17 +111,17 @@ The image below presents a comprehensive view of the open-source technologies ut
                 </td>
                 <td><img width="32" src="../design/icons/ansible.svg" alt="Ansible Logo"></td>
                 <td><a href="https://www.ansible.com">Ansible</a></td>
-                <td>Streamlines system configuration, external service integration, and k3s cluster setup.</td>
+                <td>Automates system configuration and external service integration.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/argocd.svg" alt="ArgoCD Logo"></td>
                 <td><a href="https://argoproj.github.io/cd">ArgoCD</a></td>
-                <td>Deploys Kubernetes applications following GitOps principles.</td>
+                <td>Declarative, GitOps-based continuous delivery.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/cloud-init.svg" alt="Cloud-init Logo"></td>
                 <td><a href="https://cloudinit.readthedocs.io/en/latest/">Cloud-init</a></td>
-                <td>Automates the initial configuration and setup of operating systems.</td>
+                <td>Automates initial OS configuration.</td>
             </tr>
             <!-- Layer 3: Authentication -->
             <tr>
@@ -137,26 +130,31 @@ The image below presents a comprehensive view of the open-source technologies ut
                 </td>
                 <td><img width="32" src="../design/icons/keycloak.svg" alt="Keycloak Logo"></td>
                 <td><a href="https://www.keycloak.org/">Keycloak</a></td>
-                <td>Open-source Identity and Access Management solution for modern applications and services.</td>
+                <td>OpenID Connect & OAuth 2.0 Identity and Access Management.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/OAuth2-proxy.svg" alt="OAuth2.0 Proxy Logo"></td>
-                <td><a href="https://oauth2-proxy.github.io/oauth2-proxy/">OAuth2.0 Proxy</a></td>
-                <td>A reverse proxy and static file server that provides authentication using providers like Keycloak, Google, and others.</td>
+                <td><a href="https://oauth2-proxy.github.io/oauth2-proxy/">OAuth2-Proxy</a></td>
+                <td>Reverse proxy for adding authentication to applications.</td>
             </tr>
             <!-- Layer 4: Orchestration -->
             <tr>
-                <td rowspan="2" class="vertical-cell">
+                <td rowspan="3" class="vertical-cell">
                     <div class="vertical-text">ORCHESTRATION</div>
                 </td>
                 <td><img width="32" src="../design/icons/k3s.svg" alt="K3S Logo"></td>
                 <td><a href="https://k3s.io/">K3S</a></td>
-                <td>A simplified and lightweight Kubernetes distribution.</td>
+                <td>Lightweight, certified Kubernetes distribution.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/containerd.svg" alt="containerd Logo"></td>
                 <td><a href="https://containerd.io/">containerd</a></td>
-                <td>K3S-integrated runtime for container management.</td>
+                <td>Industry-standard container runtime.</td>
+            </tr>
+            <tr>
+                <td><img width="32" src="../design/icons/volcano.svg" alt="Volcano Logo"></td>
+                <td><a href="https://volcano.sh/">Volcano</a></td>
+                <td>Batch scheduling for HPC and AI/ML workloads.</td>
             </tr>
             <!-- Layer 5: Security -->
             <tr>
@@ -165,17 +163,17 @@ The image below presents a comprehensive view of the open-source technologies ut
                 </td>
                 <td><img width="32" src="../design/icons/cert-manager.svg" alt="Cert-manager Logo"></td>
                 <td><a href="https://cert-manager.io">Cert-manager</a></td>
-                <td>Manages TLS certificates for Kubernetes.</td>
+                <td>Automated TLS certificate management.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/vault.svg" alt="Vault Logo"></td>
                 <td><a href="https://www.vaultproject.io/">Hashicorp Vault</a></td>
-                <td>Secures, stores, and tightly controls access to tokens, passwords, certificates, and other sensitive secrets in modern computing.</td>
+                <td>Centralized secrets management.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/external-secrets.svg" alt="External Secrets Logo"></td>
                 <td><a href="https://external-secrets.io/">External Secrets Operator</a></td>
-                <td>Synchronizes secrets from external APIs like Hashicorp Vault into Kubernetes.</td>
+                <td>Syncs secrets from external APIs into Kubernetes.</td>
             </tr>
             <!-- Layer 6: Storage -->
             <tr>
@@ -184,12 +182,12 @@ The image below presents a comprehensive view of the open-source technologies ut
                 </td>
                 <td><img width="32" src="../design/icons/longhorn.svg" alt="Longhorn Logo"></td>
                 <td><a href="https://longhorn.io/">Longhorn</a></td>
-                <td>Distributed storage solution for Kubernetes, ensuring data persistence.</td>
+                <td>Cloud-native distributed block storage.</td>
             </tr>
             <tr>
                 <td><img width="60" src="../design/icons/minio.svg" alt="Minio Logo"></td>
                 <td><a href="https://min.io/">Minio</a></td>
-                <td>Efficient S3-compatible object storage system.</td>
+                <td>High-performance, S3-compatible object storage.</td>
             </tr>
             <!-- Layer 7: Network -->
             <tr>
@@ -198,37 +196,37 @@ The image below presents a comprehensive view of the open-source technologies ut
                 </td>
                 <td><img width="32" src="../design/icons/coredns.svg" alt="CoreDNS Logo"></td>
                 <td><a href="https://coredns.io/">CoreDNS</a></td>
-                <td>Provides DNS services within the Kubernetes environment.</td>
+                <td>Cluster DNS resolution.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/flannel.svg" alt="Flannel Logo"></td>
                 <td><a href="https://github.com/flannel-io/flannel">Flannel</a></td>
-                <td>Network interface for Kubernetes, integrated with K3S.</td>
+                <td>CNI plugin for pod-to-pod networking.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/haproxy.svg" alt="HA Proxy Logo"></td>
                 <td><a href="https://www.haproxy.org/">HA Proxy</a></td>
-                <td>Load balancer for high availability in Kubernetes API.</td>
+                <td>High-availability load balancer for the Kubernetes API.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/metallb.svg" alt="Metal LB Logo"></td>
                 <td><a href="https://metallb.universe.tf/">Metal LB</a></td>
-                <td>Bare metal load-balancing solution for Kubernetes.</td>
+                <td>Bare-metal load balancer for Kubernetes services.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/nginx.svg" alt="Ingress NGINX Logo"></td>
                 <td><a href="https://kubernetes.github.io/ingress-nginx/">Ingress NGINX</a></td>
-                <td>Manages external access to the services in a Kubernetes cluster.</td>
+                <td>Manages external access to cluster services.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/traefik.svg" alt="Traefik Logo"></td>
                 <td><a href="https://traefik.io/">Traefik</a></td>
-                <td>Alternative Ingress Controller for Kubernetes, providing HTTP routing and load balancing.</td>
+                <td>Cloud-native Ingress Controller.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/linkerd.svg" alt="Linkerd Logo"></td>
                 <td><a href="https://linkerd.io/">Linkerd</a></td>
-                <td>Provides a service mesh for Kubernetes, enhancing network communication.</td>
+                <td>Ultralight, security-first service mesh.</td>
             </tr>
             <!-- Layer 8: Backup -->
             <tr>
@@ -237,41 +235,39 @@ The image below presents a comprehensive view of the open-source technologies ut
                 </td>
                 <td><img width="32" src="../design/icons/velero.svg" alt="Velero Logo"></td>
                 <td><a href="https://velero.io/">Velero</a></td>
-                <td>Offers backup and restore functionalities for Kubernetes clusters, ensuring data protection.</td>
+                <td>Cluster backup and restore.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/restic.png" alt="Restic Logo"></td>
                 <td><a href="https://restic.net/">Restic</a></td>
-                <td>Secure and efficient backup solution, capable of managing file-level backups.</td>
+                <td>Secure and efficient file-level backup.</td>
             </tr>
         </tbody>
     </table>
 </div>
 
-## Required External Services and Resources
+## External Services and Dependencies
 
-This section outlines necessary external services and resources for the homelab setup. While the primary goal is to host services within the Kubernetes cluster, certain external resources are essential.
+While PiKube is designed to be as self-contained as possible, it leverages a few external services for public-facing endpoints.
 
-### Cloud-Based External Services
+### Cloud-Based Services
 
-> 📌 **Note**
+> [!NOTE]
 >
-> *The use of these external resources is optional. The homelab can function without them, but it will lack verified TLS certificates.*
+> The use of these external services is optional. The cluster can operate in a fully private mode, but will lack publicly trusted TLS certificates for its services.
 
 <div class="d-flex">
     <table class="table table-white table-bordered border-dark w-auto align-middle">
         <thead>
-            <!-- Table Header -->
             <tr>
                 <th></th>
                 <th></th>
                 <th>Service Provider</th>
-                <th>Essential Resources</th>
+                <th>Role</th>
                 <th>Strategic Importance</th>
             </tr>
         </thead>
         <tbody>
-            <!-- SECURITY -->
             <tr>
                 <td rowspan="2" class="vertical-cell">
                     <div class="vertical-text">SECURITY</div>
@@ -279,78 +275,50 @@ This section outlines necessary external services and resources for the homelab 
                 <td><img width="200" src="../design/icons/letsencrypt.svg" alt="Let's Encrypt Logo"></td>
                 <td><a href="https://letsencrypt.org/">Let's Encrypt</a></td>
                 <td>TLS Certificate Authority</td>
-                <td>Issuing verified TLS certificates for secure web communications.</td>
+                <td>Provides free, trusted TLS certificates for securing public-facing services.</td>
             </tr>
             <tr>
                 <td><img width="150" src="../design/icons/cloudflare.svg" alt="Cloudflare Logo"></td>
                 <td><a href="https://www.cloudflare.com/">Cloudflare</a></td>
-                <td>Web Security & CDN</td>
-                <td>Provides DDoS mitigation and performance enhancement via CDN.</td>
+                <td>DNS & Web Security</td>
+                <td>Manages the public DNS records for the cluster and provides an API for automated DNS-01 challenges with Cert-Manager.</td>
             </tr>
         </tbody>
     </table>
 </div>
 
-### Alternative Approaches for Certificate Management and DNS Configuration
+### Externally Hosted Services
 
-**Option 1: Implementing a Private PKI:**
-
-- **`Description`**: A private Public Key Infrastructure (PKI) can be set up to sign TLS certificates internally.
-- **Implementation Status**: This option is currently feasible with only minimal adjustments necessary.
-- **`Reference`**: For detailed implementation steps, refer to the "Quick Start" guide in the documentation.
-
-**Option 2: Utilizing Alternative DNS Providers:**
-
-- **`Context`**: Cert-manager or Certbot, which are tools for automatic certificate acquisition from Let's Encrypt, can be adapted for use with various DNS providers.
-- **`Adaptation Requirements`**: Modifying the deployment approach of the cert-manager application is necessary. This involves integrating new DNS providers and possibly adding additional webhooks or plugins.
-- **`Current Configuration`**: Presently, the system is configured with the ACME issuer (specifically Let's Encrypt) using Cloudflare as the DNS-01 challenge provider.
-- **`Further Information`**: For a comprehensive list of DNS01 challenge providers compatible with this setup, please consult the [**`cert-manager documentation`**](https://cert-manager.io/docs/configuration/acme/dns01/#supported-dns01-providers) regarding supported DNS01 providers.
-
-## Externally Hosted Services
-
-This section outlines specific services hosted outside the Kubernetes cluster. The decision to self-host these services has been made for various strategic reasons.
-
-### Service Overview
+Certain critical services are hosted outside the main Kubernetes cluster to avoid circular dependencies and ensure the cluster can be bootstrapped from a clean state.
 
 <div class="d-flex">
     <table class="table table-white table-bordered border-dark w-auto align-middle">
         <thead>
-            <!-- Table Header -->
             <tr>
-                <th scope="col"></th>
-                <th scope="col"></th>
-                <th scope="col">Technology Stack</th>
-                <th scope="col">Strategic Importance</th>
+                <th></th>
+                <th></th>
+                <th>Technology Stack</th>
+                <th>Strategic Importance</th>
             </tr>
         </thead>
         <tbody>
-            <!-- STRATEGIC SERVICES -->
             <tr>
                 <td rowspan="2" class="vertical-cell">
                     <div class="vertical-text">STRATEGIC SERVICES</div>
                 </td>
                 <td><img width="60" src="../design/icons/minio.svg" alt="Minio Logo"></td>
                 <td><a href="https://min.io/">Minio</a></td>
-                <td>S3 Object Store.</td>
+                <td>S3 Object Store for cluster backups.</td>
             </tr>
             <tr>
                 <td><img width="32" src="../design/icons/vault.svg" alt="Vault Logo"></td>
                 <td><a href="https://www.vaultproject.io/">Hashicorp Vault</a></td>
-                <td>Secrets Management.</td>
+                <td>Centralized secrets management.</td>
             </tr>
         </tbody>
     </table>
 </div>
 
-**Minio:**
+* **Minio:** Provides an S3-compatible object store for **Velero** backups. It is hosted on a dedicated node to ensure that cluster backups are independent of the cluster's own storage systems.
 
-- **`Hosting Environment`**: Initially deployed on a BlueBerry Node, with plans for future migration to a Virtual Machine.
-- **`Location`**: Presently operating within local infrastructure, with a roadmap to transition to Azure or Oracle Cloud Infrastructure's Free Tier.
-- **`Function`**: Provides an S3-compatible object storage solution for backing up cluster data.
-
-**Hashicorp Vault**:
-
-- **`Hosting Environment`**: Gateway Node
-- **`Location`**: Local Infrastructure
-- **`Function`**: Manages and secures access to sensitive data and secrets. It is locally hosted due to its requirement for direct access to the Kubernetes API, making it unsuitable for public cloud hosting.
-These services are integral to the cluster's functionality, offering essential data backup and secure secrets management solutions.
+* **Hashicorp Vault:** Manages all sensitive secrets for the cluster. It is hosted on the gateway node and is a prerequisite for many other services, making it essential to be available before the rest of the cluster comes online.
