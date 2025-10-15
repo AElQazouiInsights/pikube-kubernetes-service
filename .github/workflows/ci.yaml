@@ -38,9 +38,12 @@ jobs:
       - name: Verify VitePress Installation
         run: ls -l ./node_modules/.bin/vitepress
 
-      # Step 5: Ensure VitePress binary is executable
-      - name: Make VitePress executable
-        run: chmod +x ./node_modules/.bin/vitepress || echo "VitePress already executable"
+      # Step 5: Ensure all binaries are executable
+      - name: Fix Binary Permissions
+        run: |
+          chmod +x ./node_modules/.bin/* 2>/dev/null || true
+          find ./node_modules -type f -name "esbuild" -exec chmod +x {} \; 2>/dev/null || true
+          find ./node_modules/@esbuild -type f -executable -o -name "esbuild" -exec chmod +x {} \; 2>/dev/null || true
 
       # Step 6: Build the static site
       - name: Build VitePress Site
