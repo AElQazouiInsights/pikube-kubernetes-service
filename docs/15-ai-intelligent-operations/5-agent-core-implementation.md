@@ -1,5 +1,5 @@
 ---
-title: "Chapter 5: Agent Core Implementation"
+title: "Agent Core Implementation"
 permalink: /15-ai-intelligent-operations/5-agent-core-implementation
 description: "Build the AI agent core using FastAPI and LangChain with ReAct pattern for intelligent Kubernetes operations"
 last_modified_at: 2025-10-15

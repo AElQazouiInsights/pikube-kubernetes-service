@@ -1,5 +1,5 @@
 ---
-title: "Chapter 12: Production Operations"
+title: "Production Operations"
 permalink: /15-ai-intelligent-operations/12-production-operations
 description: "Operational runbooks, maintenance procedures, and best practices for running AI agents in production"
 last_modified_at: 2025-10-15

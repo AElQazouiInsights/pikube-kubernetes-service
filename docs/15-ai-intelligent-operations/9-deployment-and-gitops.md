@@ -1,5 +1,5 @@
 ---
-title: "Chapter 9: Deployment and GitOps"
+title: "Deployment and GitOps"
 permalink: /15-ai-intelligent-operations/9-deployment-and-gitops
 description: "Deploy the AI agent to Kubernetes using GitOps principles with ArgoCD for automated, declarative infrastructure management"
 last_modified_at: 2025-10-15

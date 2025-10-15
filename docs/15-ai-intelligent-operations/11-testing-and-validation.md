@@ -1,5 +1,5 @@
 ---
-title: "Chapter 11: Testing and Validation"
+title: "Testing and Validation"
 permalink: /15-ai-intelligent-operations/11-testing-and-validation
 description: "Comprehensive testing strategy for AI agents including unit tests, integration tests, and end-to-end validation"
 last_modified_at: 2025-10-15

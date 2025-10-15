@@ -1,5 +1,5 @@
 ---
-title: "Chapter 6: Tool Development"
+title: "Tool Development"
 permalink: /15-ai-intelligent-operations/6-tool-development
 description: "Implement Prometheus, Loki, and Kubernetes API tools to give your AI agent observability superpowers"
 last_modified_at: 2025-10-15

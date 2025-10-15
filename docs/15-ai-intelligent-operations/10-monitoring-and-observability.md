@@ -1,5 +1,5 @@
 ---
-title: "Chapter 10: Monitoring and Observability"
+title: "Monitoring and Observability"
 permalink: /15-ai-intelligent-operations/10-monitoring-and-observability
 description: "Implement comprehensive monitoring, metrics, and observability for your AI agent using Prometheus and Grafana"
 last_modified_at: 2025-10-15

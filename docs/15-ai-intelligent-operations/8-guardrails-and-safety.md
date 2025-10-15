@@ -1,5 +1,5 @@
 ---
-title: "Chapter 8: Guardrails and Safety"
+title: "Guardrails and Safety"
 permalink: /15-ai-intelligent-operations/8-guardrails-and-safety
 description: "Implement comprehensive safety mechanisms to prevent cost overruns, security vulnerabilities, and operational risks in your AI agent"
 last_modified_at: 2025-10-15
