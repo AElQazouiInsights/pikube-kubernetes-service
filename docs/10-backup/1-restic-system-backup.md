@@ -7,12 +7,14 @@ last_modified_at: "2025-07-12"
 
 # {{ $frontmatter.title }}
 
+<!-- Image placeholder - add restic logo when available
 <p align="center">
     <img alt="restic-backup"
     src="../resources/backup/restic.png"
     width="30%"
     height="%">
 </p>
+-->
 
 ## Overview
 
