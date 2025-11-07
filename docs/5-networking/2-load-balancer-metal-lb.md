@@ -182,13 +182,15 @@ kubectl create namespace metal-lb
 ### Install MetalLB
 
 ```bash
-helm install metallb metallb/metallb --namespace metal-lb
+helm upgrade --install metallb metallb/metallb -n metal-lb --wait --timeout 5m
 ```
 
 ### Verify the Deployment
 
 ```bash
-kubectl -n metal-lb get pods
+kubectl -n metal-lb rollout status deploy/metallb-controller --timeout=300s
+kubectl -n metal-lb get ds metallb-speaker -o wide
+kubectl -n metal-lb get pods -o wide
 ```
 
 Expected output:

@@ -44,7 +44,7 @@ The PiKube Kubernetes cluster is architected with a mix of nodes, each playing a
 | IP Address | Hostname | Hardware | RAM | Storage | Network |
 |------------|----------|----------|-----|---------|---------|
 | **10.0.0.10** | blueberry-master | Raspberry Pi 4B | 8GB | 128GB SanDisk (SN128) | Gigabit Ethernet |
-| **10.0.0.11** | strawberry-master | Raspberry Pi 4B | 8GB | 128GB SanDisk (SR128) | Gigabit Ethernet |
+| **10.0.0.11** | strawberry-master | Raspberry Pi 4B | 4GB | 128GB SanDisk (SR128) | Gigabit Ethernet |
 | **10.0.0.12** | blackberry-master | Raspberry Pi 4B | 4GB | 128GB SanDisk (SR128) | Gigabit Ethernet |
 
 ### Worker Nodes
@@ -53,11 +53,11 @@ The PiKube Kubernetes cluster is architected with a mix of nodes, each playing a
 
 | IP Address | Hostname | Hardware | RAM | Storage | Network | AI |
 |------------|----------|----------|-----|---------|---------|-----|
-| **10.0.0.13** | cranberry-worker | Raspberry Pi 5 Model B | 4GB | 256GB Samsung EVO (GE4S5) | Gigabit Ethernet | - |
+| **10.0.0.13** | cranberry-worker | Raspberry Pi 5 Model B | 8GB | 256GB Samsung EVO (GE4S5) | Gigabit Ethernet | - |
 | **10.0.0.15** | orange-worker | Orange Pi 5 | 16GB | 256GB Samsung EVO (GE4S5) | Gigabit Ethernet | 6 TOPS NPU |
 | **10.0.0.16** | mandarine-worker | Orange Pi 5 | 16GB | 256GB Samsung EVO (GE4S5) | Gigabit Ethernet | 6 TOPS NPU |
-| **10.0.0.17** | lemon-worker | Orange Pi 5 Ultra | 16GB | 256GB Samsung EVO (FE4S9) | 2.5G Ethernet | 6 TOPS NPU |
-| **10.0.0.18** | clementine-worker | Orange Pi 5 Ultra | 16GB | 256GB Samsung EVO (FE4S9) | 2.5G Ethernet | 6 TOPS NPU |
+| **10.0.0.17** | lemon-worker | Orange Pi 5 Ultra | 16GB | 256GB Samsung EVO (FE4S9) + **931GB NVMe SSD** | 2.5G Ethernet | 6 TOPS NPU |
+| **10.0.0.18** | clementine-worker | Orange Pi 5 Ultra | 16GB | 256GB Samsung EVO (FE4S9) + **931GB NVMe SSD** | 2.5G Ethernet | 6 TOPS NPU |
 | **10.0.0.19** | grapefruit-worker | Orange Pi 5 Ultra | 16GB | 256GB Samsung EVO (GE4S5) + **931GB NVMe SSD** | 2.5G Ethernet | 6 TOPS NPU |
 
 ---
@@ -75,16 +75,19 @@ The network infrastructure is tailored to provide high-speed, reliable connectiv
 ### Network Performance Tiers
 
 #### High-Speed Tier (2.5G Capable)
+
 - **Nodes**: lemon-worker, clementine-worker, grapefruit-worker (Orange Pi 5 Ultra)
 - **Technology**: 2.5G Ethernet controllers + Wi-Fi 6E
 - **Use Cases**: High-bandwidth applications, real-time processing
 
 #### Standard Tier (1G)
+
 - **Nodes**: All masters, cranberry-worker, orange-worker, mandarine-worker, gateway, sentinel
 - **Technology**: Gigabit Ethernet + Wi-Fi 5/6
 - **Use Cases**: Standard workloads, control plane communication
 
 #### Edge Tier (Wireless Primary)
+
 - **Nodes**: hedgeway (Orange Pi Zero 2W)
 - **Technology**: Wi-Fi 5 dual-band
 - **Use Cases**: IoT gateway, edge computing
@@ -111,11 +114,13 @@ The **pimaster**, an Ansible control node, is a Docker Linux VM on a Windows lap
 ### Power Supply Infrastructure
 
 **Primary Power Distribution:**
+
 - **2× Anker PowerPort 60W 6-port USB Chargers** with PowerIQ technology for efficient multi-device charging
 - **Total Power Capacity**: 120W across 12 ports
 - **PowerIQ Technology**: Intelligent charging optimization for each connected device
 
 **Power Control & Management:**
+
 - **USB-C Male/Female Power Switches** with LED indicators for controlled power management
 - **Individual Node Control**: Each node can be powered on/off independently
 - **Visual Status Indicators**: LED lights show power state for each node
@@ -131,6 +136,7 @@ The **pimaster**, an Ansible control node, is a Docker Linux VM on a Windows lap
 ### Cooling & Physical Infrastructure
 
 **Cluster Housing:**
+
 - **GeeekPi Raspberry Pi Cluster Case** with integrated cooling system
 - **Active Cooling**: Built-in fans for temperature management
 - **Heat Dissipation**: Individual heatsinks for each node
@@ -138,6 +144,7 @@ The **pimaster**, an Ansible control node, is a Docker Linux VM on a Windows lap
 - **Cable Management**: Integrated cable routing for clean setup
 
 **Cooling Components:**
+
 - **Individual Heatsinks**: Per-node thermal management
 - **Cluster Case Fans**: Active airflow management
 - **Open-Frame Design**: Natural convection assistance
@@ -234,13 +241,12 @@ The **pimaster**, an Ansible control node, is a Docker Linux VM on a Windows lap
 ## 💾 Storage Solutions
 
 ### Verified Storage Configuration by Node
-*Source: Verified via SSH commands (lsblk, fdisk, /sys/block)*
 
 | Node | Storage Type | Model | Capacity (GiB) | Manufacturer ID | Performance |
 |------|-------------|-------|----------------|-----------------|-------------|
 | **grapefruit-worker** | NVMe SSD + SD | CT1000P3PSSD8 + GE4S5 | 931.5 + 238.8 | - + 0x00001b | Ultra-high + High |
-| **clementine-worker** | Samsung EVO Select | FE4S9 | 238.8 | 0x00001b | High |
-| **lemon-worker** | Samsung EVO Select | FE4S9 | 238.8 | 0x00001b | High |
+| **clementine-worker** | NVMe SSD + SD | CT1000P3PSSD8 + FE4S9 | 931.5 + 238.8 | - + 0x00001b | Ultra-high + High |
+| **lemon-worker** | NVMe SSD + SD | CT1000P3PSSD8 + FE4S9 | 931.5 + 238.8 | - + 0x00001b | Ultra-high + High |
 | **mandarine-worker** | Samsung EVO Select | GE4S5 | 238.8 | 0x00001b | High |
 | **orange-worker** | Samsung EVO Select | GE4S5 | 238.8 | 0x00001b | High |
 | **cranberry-worker** | Samsung EVO Select | GE4S5 | 238.8 | 0x00001b | High |
@@ -255,8 +261,8 @@ The **pimaster**, an Ansible control node, is a Docker Linux VM on a Windows lap
 
 | Tier | Storage Type | Nodes | Total Capacity | Use Case |
 |------|-------------|-------|----------------|----------|
-| **Tier 1** | NVMe SSD | grapefruit-worker | 931GB | High-I/O, databases, Longhorn primary |
-| **Tier 2** | Samsung EVO Select 256GB | 6× Workers | 1,433GB | Application storage, worker workloads |
+| **Tier 1** | NVMe SSD | grapefruit, clementine, lemon workers | 2,794GB | High-I/O, databases, Longhorn primary |
+| **Tier 2** | Samsung EVO Select 256GB | 6× Workers (SD cards) | 1,433GB | Application storage, worker workloads |
 | **Tier 3** | Samsung EVO 128GB | Gateway | 119GB | System reliability, gateway services |
 | **Tier 4** | SanDisk 128GB | 3× Masters | 357GB | Control plane, etcd storage |
 | **Tier 5** | SanDisk 32GB | 2× Edge nodes | 59GB | Edge workloads, monitoring |
@@ -265,19 +271,19 @@ The **pimaster**, an Ansible control node, is a Docker Linux VM on a Windows lap
 
 | Storage Type | Count | Total Capacity | Percentage |
 |-------------|-------|----------------|------------|
-| **NVMe SSD** | 1 | 931GB | 31.4% |
-| **Samsung EVO** | 7 | 1,552GB | 52.4% |
-| **SanDisk** | 5 | 476GB | 16.2% |
-| **Total** | **13** | **2,959GB** | **100%** |
+| **NVMe SSD** | 3 | 2,794GB | 59.1% |
+| **Samsung EVO** | 7 | 1,552GB | 32.8% |
+| **SanDisk** | 5 | 476GB | 10.1% |
+| **Total** | **15** | **4,722GB** | **100%** |
 
 ---
 
-## 📊 Verified Performance Data
+## 📊 Performance Data
 
-### NVMe Storage Performance (grapefruit-worker)
-*Source: Measured via SSH with dd and fio commands*
+### NVMe Storage Performance
 
 #### Sequential Performance
+
 ```bash
 # DD Tests (Direct I/O)
 Direct Read:  2.6 GB/s
@@ -289,6 +295,7 @@ Write: 1,852 MB/s (1,851 IOPS at 1MB blocks)
 ```
 
 #### Random 4K Performance
+
 ```bash
 # FIO Random Performance
 Read:  205 MB/s (52,400 IOPS)
@@ -296,7 +303,6 @@ Write: 208 MB/s (53,300 IOPS)
 ```
 
 ### NVMe Hardware Details
-*Source: Verified via SSH commands*
 
 ```bash
 Model: CT1000P3PSSD8 (Crucial)

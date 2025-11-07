@@ -2,7 +2,7 @@
 title: Minio Installation on a Baremetal Server
 permalink: /docs/3-external-services/1-s3-backup-backend-minio-setup
 description: How to configure a Single-board computer (Raspberry Pi or Orange Pi) as router/firewall of our Kubernetes Cluster providing connectivity and basic services (DNS, DHCP, NTP).
-last_modified_at: "06-10-2023"
+last_modified_at: "2025-11-06"
 ---
 
 # {{ $frontmatter.title }}
@@ -13,20 +13,6 @@ last_modified_at: "06-10-2023"
     width="%"
     height="%">
 </p>
-
-<!-- - [{{ $frontmatter.title }}](#-frontmattertitle-)
-  - [Create minio’s UNIX user/group](#create-minios-unix-usergroup)
-  - [Create Minio’s S3 storage directory](#create-minios-s3-storage-directory)
-  - [Set up Minio’s config directories](#set-up-minios-config-directories)
-  - [Obtain Minio's server binary and client](#obtain-minios-server-binary-and-client)
-  - [Set up Minio's configuration file](#set-up-minios-configuration-file)
-  - [Create systemd service for Minio](#create-systemd-service-for-minio)
-  - [SSL Certificates for Minio](#ssl-certificates-for-minio)
-    - [Custom CA](#custom-ca)
-    - [Cloudflare using Let's Encrypt](#cloudflare-using-lets-encrypt)
-      - [Enable Automatic Certificate Renewal](#enable-automatic-certificate-renewal)
-  - [Minio Configuration Buckets](#minio-configuration-buckets)
-  - [Test a Bucket](#test-a-bucket) -->
 
 Minio is a robust distributed object storage server, offering flexibility in deployment either as a Kubernetes service or as a standalone setup in a bare-metal environment. For tasks like backing up or restoring a Kubernetes cluster, opting for the bare-metal installation proves advantageous, allowing Minio to function as an external service to the cluster.
 
@@ -120,6 +106,7 @@ fi
 ```
 
 For instance, this home-lab is using an `arm64` architecture.
+
 ```bash
 wget https://dl.min.io/server/minio/release/linux-arm64/minio
 wget https://dl.minio.io/client/mc/release/linux-arm64/mc
@@ -217,93 +204,149 @@ sudo systemctl enable minio.service
 
 ## SSL Certificates for Minio
 
-Self-signed certificates with a custom CA will be used instead using a trusted certificate authority (CA) for Minio server ensures that clients (browsers, SDKs, etc.) will trust the SSL certificate by default. One of the most popular and free CAs is Let's Encrypt, which provides free SSL certificates.
+Securing Minio with SSL/TLS certificates is essential for production deployments. This section covers two certificate strategies, each suited to different deployment scenarios.
 
-### Custom CA
+### Certificate Strategy Decision Tree
 
-- Create a self-signed CA key and self-signed certificate
+Choose your certificate approach based on your infrastructure:
+
+| **Scenario** | **Recommended Approach** | **Pros** | **Cons** |
+|--------------|-------------------------|----------|----------|
+| **Have a domain name** (e.g., quantfinancehub.com) with Cloudflare DNS | **Let's Encrypt with Cloudflare DNS-01** ✅ | • Automatically trusted by all clients<br>• Free and automated<br>• 90-day validity with auto-renewal<br>• Works for internal services | • Requires domain ownership<br>• Requires Cloudflare account<br>• Needs DNS API access |
+| **No domain name** or isolated lab environment | **Self-Signed with Custom CA** | • Complete control<br>• No external dependencies<br>• Works offline<br>• Never expires (if configured) | • Requires manual trust setup on all clients<br>• Browser warnings without trust<br>• Manual certificate management |
+
+> [!TIP]
+> **For PiKube with quantfinancehub.com domain**: This deployment uses **Let's Encrypt with Cloudflare DNS-01 challenge**, allowing automatic certificate issuance for internal services (e.g., `s3.quantfinancehub.com`) without exposing them to the internet.
+
+### Option 1: Self-Signed Certificates (No Domain Required)
+
+This approach creates your own Certificate Authority (CA) to sign certificates. Ideal for lab environments or when you don't have a domain name.
+
+#### Step 1: Create Root Certificate Authority
 
 ```bash
+# Generate self-signed root CA
 openssl req -x509 \
        -sha256 \
        -nodes \
        -newkey rsa:4096 \
        -subj "/CN=QuantFinanceHub CA" \
-       -keyout rootCA.key -out rootCA.crt
+       -keyout rootCA.key -out rootCA.crt \
+       -days 36500
 ```
 
-- Create a SSL certificate for Minio server signed using the custom CA
+This creates:
+
+- `rootCA.key`: Private key for your CA (keep secure!)
+- `rootCA.crt`: Public CA certificate (distribute to clients)
+
+#### Step 2: Generate Minio Server Certificate
 
 ```bash
+# Create certificate signing request (CSR)
 openssl req -new -nodes -newkey rsa:4096 \
             -keyout minio.key \
             -out minio.csr \
             -batch \
             -subj "/C=GB/ST=London/L=London/O=QuantFinanceHub CA/OU=picluster/CN=s3.quantfinancehub.com"
-```
 
-```bash
-openssl x509 -req -days 365000 -set_serial 01 \
-      -extfile <(printf "subjectAltName=DNS:s3.quantfinancehub.com") \
+# Sign the CSR with your CA
+openssl x509 -req -days 36500 -set_serial 01 \
+      -extfile <(printf "subjectAltName=DNS:s3.quantfinancehub.com,DNS:s3.picluster.quantfinancehub.com,IP:10.0.0.10") \
       -in minio.csr \
       -out minio.crt \
       -CA rootCA.crt \
       -CAkey rootCA.key
 ```
 
-Once the certificate is created, public certificate and private key need to be installed in Minio server following this procedure:
+> [!NOTE]
+> The `subjectAltName` includes both DNS names and IP addresses for flexible access.
 
-- Copy public certificate minio.crt as /etc/minio/ssl/public.crt
+#### Step 3: Install Certificates in Minio
 
 ```bash
+# Copy public certificate
 sudo cp minio.crt /etc/minio/ssl/public.crt
 sudo chown minio:minio /etc/minio/ssl/public.crt
-```
 
-- Copy private key minio.key as /etc/minio/ssl/private.key
-
-```bash
+# Copy private key
 sudo cp minio.key /etc/minio/ssl/private.key
 sudo chown minio:minio /etc/minio/ssl/private.key
+sudo chmod 600 /etc/minio/ssl/private.key
 ```
 
-**`Trust the Self-Signed Certificate`** on the Client Machine: This involves adding the self-generated **`rootCA certificate`** (**`rootCA.crt`** in the procedure) to the trusted certificate store on the machine where you are running the mc command. This will make the mc client trust the certificate presented by your Minio server.
+#### Step 4: Trust the CA on Client Machines
+
+For clients to trust your Minio server, install the CA certificate:
+
+**On Ubuntu/Debian (including Raspberry Pi nodes):**
 
 ```bash
-sudo cp rootCA.crt /usr/local/share/ca-certificates/
+sudo cp rootCA.crt /usr/local/share/ca-certificates/quantfinancehub-ca.crt
 sudo update-ca-certificates
 ```
 
-- Restart minio server.
+**On Windows:**
+Import `rootCA.crt` via Certificate Manager (certmgr.msc) → Trusted Root Certification Authorities
+
+#### Step 5: Restart Minio
 
 ```bash
 sudo systemctl restart minio.service
 ```
 
-### Cloudflare using Let's Encrypt
+### Option 2: Let's Encrypt with Cloudflare DNS-01 Challenge ✅ RECOMMENDED
 
-- Install Certbot if not already installed
+This approach uses Let's Encrypt to issue trusted certificates via Cloudflare's DNS API. This is the **recommended approach for the PiKube cluster** with the quantfinancehub.com domain.
+
+#### Prerequisites
+
+- Domain name managed by Cloudflare DNS (e.g., quantfinancehub.com)
+- Cloudflare API token with DNS edit permissions
+
+#### Step 1: Create Cloudflare API Token
+
+1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com)
+2. Navigate to **My Profile** → **API Tokens** → **Create Token**
+3. Use the **Edit zone DNS** template
+4. Configure:
+   - **Permissions**: `Zone → DNS → Edit`
+   - **Zone Resources**: `Include → Specific zone → quantfinancehub.com`
+5. Click **Continue to summary** → **Create Token**
+6. **Copy the token immediately** (shown only once)
+
+#### Step 2: Install Certbot with Cloudflare Plugin
 
 ```bash
-sudo apt install certbot python3-certbot-dns-cloudflare
+sudo apt update
+sudo apt install certbot python3-certbot-dns-cloudflare -y
 ```
 
-- Set up Cloudflare credentials
+#### Step 3: Configure Cloudflare Credentials
 
 ```bash
-# Create directory with secure permissions
+# Create secure directory
 sudo mkdir -p /root/.secrets/
 sudo chmod 0700 /root/.secrets/
 
 # Create credentials file
 sudo nano /root/.secrets/cloudflare.ini
-# Add: dns_cloudflare_api_token = your-cloudflare-api-token
+```
 
-# Secure the file
+Add the following content (replace with your actual token):
+
+```ini
+# Cloudflare API token for DNS-01 challenge
+dns_cloudflare_api_token = your-cloudflare-api-token-here
+```
+
+Secure the file:
+
+```bash
 sudo chmod 0400 /root/.secrets/cloudflare.ini
 ```
 
-- Get Let's Encrypt certificate:
+#### Step 4: Request Let's Encrypt Certificate
 
 ```bash
 sudo certbot certonly \
@@ -312,11 +355,16 @@ sudo certbot certonly \
   -d s3.quantfinancehub.com \
   --preferred-challenges dns-01 \
   --agree-tos \
-  --email quant-finance-hub@outlook.com
-# Here quant-finance-hub@outlook.com
+  --email quant-finance-hub@outlook.com \
+  --non-interactive
 ```
 
-- Install certificates
+This creates certificates at:
+
+- `/etc/letsencrypt/live/s3.quantfinancehub.com/fullchain.pem`
+- `/etc/letsencrypt/live/s3.quantfinancehub.com/privkey.pem`
+
+#### Step 5: Install Certificates in Minio
 
 ```bash
 sudo cp /etc/letsencrypt/live/s3.quantfinancehub.com/fullchain.pem /etc/minio/ssl/public.crt
@@ -325,41 +373,216 @@ sudo chown minio:minio /etc/minio/ssl/{public.crt,private.key}
 sudo chmod 600 /etc/minio/ssl/{public.crt,private.key}
 ```
 
-- Restart Minio service
+#### Step 6: Restart Minio
 
 ```bash
 sudo systemctl restart minio.service
 ```
 
-#### Enable Automatic Certificate Renewal
+### Automatic Certificate Renewal (Let's Encrypt Only)
 
-To ensure the updated certificates are always in use, you can automate the renewal and application process:
+Let's Encrypt certificates are valid for **90 days** and must be renewed regularly. Ubuntu includes automatic renewal via systemd timer.
 
-- Add a renewal hook for Certbot, to copy the new certificates and restart Minio
+#### Understanding the Auto-Renewal System
+
+Ubuntu's certbot package installs a systemd timer that runs twice daily:
+
+```bash
+# Check the renewal timer status
+sudo systemctl status certbot.timer
+```
+
+The timer configuration:
+
+- **Runs**: Twice daily at 00:00 and 12:00
+- **Random delay**: Up to 12 hours to distribute load
+- **Renewal threshold**: Certificates within 30 days of expiry
+
+Verify timer schedule:
+
+```bash
+sudo systemctl list-timers certbot.timer
+```
+
+#### Post-Renewal Hook for Minio
+
+After certificate renewal, Minio must be restarted to use the new certificates. Create a deployment hook:
 
 ```bash
 sudo nano /etc/letsencrypt/renewal-hooks/deploy/minio-renewal.sh
 ```
 
+Add the following content:
+
 ```bash
 #!/bin/bash
-cp /etc/letsencrypt/live/s3.quantfinancehub.com/fullchain.pem /etc/minio/ssl/public.crt
-cp /etc/letsencrypt/live/s3.quantfinancehub.com/privkey.pem /etc/minio/ssl/private.key
-chown minio:minio /etc/minio/ssl/{public.crt,private.key}
-chmod 600 /etc/minio/ssl/{public.crt,private.key}
-systemctl restart minio.service
+#
+# Minio Certificate Renewal Hook
+# Executed after successful certificate renewal
+# Location: /etc/letsencrypt/renewal-hooks/deploy/minio-renewal.sh
+#
+
+set -e
+
+# Certificate paths
+CERT_DOMAIN="s3.quantfinancehub.com"
+FULLCHAIN="/etc/letsencrypt/live/${CERT_DOMAIN}/fullchain.pem"
+PRIVKEY="/etc/letsencrypt/live/${CERT_DOMAIN}/privkey.pem"
+
+# Minio SSL paths
+MINIO_CERT="/etc/minio/ssl/public.crt"
+MINIO_KEY="/etc/minio/ssl/private.key"
+
+# Log file
+LOG="/var/log/letsencrypt/minio-renewal.log"
+
+# Logging function
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG"
+}
+
+log "Starting Minio certificate renewal process"
+
+# Verify source certificates exist
+if [ ! -f "$FULLCHAIN" ] || [ ! -f "$PRIVKEY" ]; then
+    log "ERROR: Source certificates not found"
+    exit 1
+fi
+
+# Copy certificates
+log "Copying new certificates to Minio"
+cp "$FULLCHAIN" "$MINIO_CERT"
+cp "$PRIVKEY" "$MINIO_KEY"
+
+# Set ownership and permissions
+chown minio:minio "$MINIO_CERT" "$MINIO_KEY"
+chmod 600 "$MINIO_CERT" "$MINIO_KEY"
+
+# Restart Minio service
+log "Restarting Minio service"
+if systemctl restart minio.service; then
+    log "Minio successfully restarted with new certificates"
+else
+    log "ERROR: Failed to restart Minio service"
+    exit 1
+fi
+
+# Verify Minio is running
+sleep 5
+if systemctl is-active --quiet minio.service; then
+    log "Minio is running and healthy"
+else
+    log "WARNING: Minio service is not active after restart"
+fi
+
+log "Minio certificate renewal completed successfully"
 ```
 
-- Make the script executable
+Make the script executable:
 
 ```bash
 sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/minio-renewal.sh
 ```
 
-- Simulate a renewal to test the hook
+#### Testing Auto-Renewal
+
+Test the renewal process without actually renewing:
 
 ```bash
+# Dry-run test (simulates renewal without making changes)
 sudo certbot renew --dry-run
+
+# Check the hook execution in the output
+# Look for: "Running deploy hook for s3.quantfinancehub.com"
+```
+
+Force a renewal to test the hook (only if needed):
+
+```bash
+sudo certbot renew --cert-name s3.quantfinancehub.com --force-renewal
+```
+
+Check the hook log:
+
+```bash
+sudo tail -f /var/log/letsencrypt/minio-renewal.log
+```
+
+#### Certificate Expiry Monitoring
+
+Monitor certificate expiration:
+
+```bash
+# Check certificate validity
+sudo certbot certificates
+
+# Check specific certificate expiry
+sudo openssl x509 -in /etc/letsencrypt/live/s3.quantfinancehub.com/fullchain.pem -noout -enddate
+```
+
+Expected output:
+
+```init
+notAfter=Feb 4 21:55:17 2026 GMT
+```
+
+#### Troubleshooting Renewal Issues
+
+**Issue: Renewal fails with DNS propagation errors**
+
+```bash
+# Solution: Increase DNS propagation wait time
+sudo certbot renew --dns-cloudflare-propagation-seconds 60
+```
+
+**Issue: Hook not executing**
+
+```bash
+# Check hook directory permissions
+sudo ls -la /etc/letsencrypt/renewal-hooks/deploy/
+
+# Manually run the hook to test
+sudo /etc/letsencrypt/renewal-hooks/deploy/minio-renewal.sh
+```
+
+**Issue: Minio fails to start after renewal**
+
+```bash
+# Check Minio logs
+sudo journalctl -u minio.service -n 50 --no-pager
+
+# Verify certificate ownership
+sudo ls -la /etc/minio/ssl/
+
+# Manually verify certificate
+sudo openssl x509 -in /etc/minio/ssl/public.crt -text -noout | grep -E 'Subject:|Issuer:|Not After'
+```
+
+### Verification and Testing
+
+After certificate installation (either method), verify the setup:
+
+#### Test Minio Service
+
+```bash
+# Check Minio status
+sudo systemctl status minio.service
+
+# Test HTTPS connection
+curl -I https://s3.quantfinancehub.com:9091/minio/health/live
+
+# Verify certificate details
+openssl s_client -connect s3.quantfinancehub.com:9091 -showcerts </dev/null 2>/dev/null | openssl x509 -noout -text | grep -E 'Subject:|Issuer:|Not After'
+```
+
+#### Test Minio Client (mc) Connection
+
+```bash
+# Configure mc alias (will prompt for credentials if not set)
+mc alias set myminio https://s3.quantfinancehub.com:9091 minioadmin supers1cret0
+
+# Test connection
+mc admin info myminio
 ```
 
 ## Minio Configuration Buckets
@@ -529,29 +752,51 @@ Now, Minio server is set up with three buckets (`k3s-longhorn`, `k3s-velero`, an
 
 ## Test a Bucket
 
-- Create a sample file and upload it to, for instance, the `longhorn` bucket
+Comprehensive testing of MinIO deployment:
 
 ```bash
-echo "Test file content" > testfile.txt
-sudo mc cp testfile.txt PiKubeS3Vault/longhorn/
+# Create test file
+echo "MinIO Test - $(date)" > /tmp/testfile.txt
+
+# Test each service account
+for user in longhorn velero restic; do
+    echo "Testing $user account..."
+    
+    # Upload test file
+    sudo mc cp /tmp/testfile.txt "PiKubeS3Vault/k3s-${user}/"
+    
+    # Verify upload
+    sudo mc ls "PiKubeS3Vault/k3s-${user}/"
+    
+    # Download and verify
+    sudo mc cp "PiKubeS3Vault/k3s-${user}/testfile.txt" "/tmp/downloaded-${user}.txt"
+    
+    # Compare files
+    if diff -q /tmp/testfile.txt "/tmp/downloaded-${user}.txt" > /dev/null; then
+        echo "✅ $user account test PASSED"
+    else
+        echo "❌ $user account test FAILED"
+    fi
+    
+    # Clean up
+    sudo mc rm "PiKubeS3Vault/k3s-${user}/testfile.txt"
+done
+
+# Clean up test files
+rm -f /tmp/testfile.txt /tmp/downloaded-*.txt
 ```
 
-- Verify that the file was successfully uploaded. You should see `testfile.txt` listed in the output
+## Performance Monitoring
+
+Monitor MinIO performance and health:
 
 ```bash
-sudo mc ls PiKubeS3Vault/longhorn
-```
+# Performance test
+sudo mc admin speed test PiKubeS3Vault --duration 30s
 
-- Download and verify the file
+# Storage information
+sudo mc admin info PiKubeS3Vault
 
-```bash
-sudo mc cp PiKubeS3Vault/longhorn/testfile.txt downloaded_testfile.txt
-cat downloaded_testfile.txt
-```
-
-- Clean up
-
-```bash
-sudo mc cp PiKubeS3Vault/longhorn/testfile.txt downloaded_testfile.txt
-cat downloaded_testfile.txt
+# Prometheus metrics (if enabled)
+sudo mc admin prometheus generate PiKubeS3Vault
 ```
