@@ -252,7 +252,95 @@ kubectl --kubeconfig=/home/pi/.kube/config.yaml -n cert-manager get pods
 
 ### Configuring Cert-Manager with Cloudflare for Let's Encrypt
 
-- Create a Kubernetes secret with Cloudflare API token **`cloudflare-api-token-secret.yaml`**. Replace **`your-cloudflare-api-token`** and **`your-cloudflare-email`** with the actual Cloudflare API token findable in [**`API Token Dashboard`**](https://dash.cloudflare.com/profile/api-tokens) and **`Cloudflare`** mail address used.
+> [!IMPORTANT]
+> If you own a domain (Cloudflare‑managed in this guide), prefer Let’s Encrypt via DNS‑01. The self‑signed/CA sections are
+> provided only as a fallback for environments without a public domain.
+
+> [!TIP]
+> If you centralize secrets in Vault, store the Cloudflare token at:
+> `secret/cert-manager/cloudflare` with field `dns_cloudflare_api_token`. Use External Secrets Operator (ESO) to map that
+> field to a Kubernetes Secret `cloudflare-api-token-secret` with key `api-token`, which is what cert-manager expects in
+> `apiTokenSecretRef.key`.
+
+#### Recommended (Vault + External Secrets Operator)
+
+1) Ensure ESO is installed and `ClusterSecretStore/vault-backend` exists (see the Vault doc).
+
+2) Create an ExternalSecret that projects the token from Vault:
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: cloudflare-api-token-secret
+  namespace: cert-manager
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: cloudflare-api-token-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: api-token
+      remoteRef:
+        key: cert-manager/cloudflare
+        property: dns_cloudflare_api_token
+```
+
+3) Create the ClusterIssuer:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-issuer
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: <your-lets-encrypt-email>
+    privateKeySecretRef:
+      name: letsencrypt-private-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token-secret
+              key: api-token
+```
+
+4) Verify issuer readiness:
+
+```bash
+kubectl get clusterissuer letsencrypt-issuer -o jsonpath='{.status.conditions[*].type} {.status.conditions[*].status} {.status.conditions[*].reason}'
+```
+
+5) Issue a test certificate (adjust host):
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: test-cert
+  namespace: default
+spec:
+  dnsNames:
+    - argocd.picluster.quantfinancehub.com
+  secretName: test-cert-tls
+  issuerRef:
+    name: letsencrypt-issuer
+    kind: ClusterIssuer
+```
+
+Check status/events:
+
+```bash
+kubectl -n default describe certificate test-cert
+kubectl -n default get secret test-cert-tls
+```
+
+- Alternative (without Vault/ESO): create a Kubernetes Secret manually.
 
 ```yaml
 apiVersion: v1
@@ -263,7 +351,6 @@ metadata:
 type: Opaque
 stringData:
   api-token: <your-cloudflare-api-token>
-  email: <your-cloudflare-email>
 ```
 
 - Apply Manifest

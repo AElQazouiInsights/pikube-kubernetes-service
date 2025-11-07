@@ -14,21 +14,11 @@ last_modified_at: "17-12-2023"
     height="%">
 </p>
 
-<!-- - [NGINX Installation](#nginx-installation)
-  - [Understanding the **`nginx-values.yaml`** Configuration File](#understanding-the-nginx-valuesyaml-configuration-file)
-    - [📢 LoadBalancer IP Configuration](#-loadbalancer-ip-configuration)
-    - [📢 Enabling Prometheus Metrics](#-enabling-prometheus-metrics)
-    - [📢 Activating NGINX Access Logging](#-activating-nginx-access-logging)
-    - [📢 Enabling Ingress Snippet Annotations](#-enabling-ingress-snippet-annotations)
-- [Setting Up the NGINX ingress](#setting-up-the-nginx-ingress)
-  - [Enable HTTP to HTTPS Redirect](#enable-http-to-https-redirect)
-  - [Configure HTTP Basic Authentication (Optional)](#configure-http-basic-authentication-optional) -->
-
 For managing incoming HTTP/HTTPS traffic to services exposed in a K3S cluster, an Ingress Controller is needed. While K3S typically includes Traefik as its default Ingress Controller, NGINX can be used as an alternative. NGINX Ingress Controller serves as a reverse proxy and load balancer within Kubernetes.
 
-**Important Consideration**:
-
-To integrate NGINX Ingress Controller in a K3S setup, it's necessary to disable the default Traefik add-on during the K3S installation process. This allows for the manual installation of the NGINX Ingress Controller.
+> [!IMPORTANT]
+>
+> To integrate NGINX Ingress Controller in a K3S setup, it's necessary to disable the default Traefik add-on during the K3S installation process. This allows for the manual installation of the NGINX Ingress Controller.
 
 ## NGINX Installation
 
@@ -38,16 +28,16 @@ To integrate NGINX Ingress Controller in a K3S setup, it's necessary to disable 
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 ```
 
-- Update Helm Repositories by fetching the latest charts from the Traefik repository
+- Update Helm repositories to fetch the latest charts from the ingress-nginx repository
 
 ```bash
 helm repo update
 ```
 
-- Create a dedicated Namespace for Traefik in the pi-cluster
+- Create a dedicated namespace for NGINX in the cluster
 
 ```bash
-sudo kubectl --kubeconfig=/home/pi/.kube/config.yaml create namespace nginx
+kubectl create namespace nginx
 ```
 
 - Create a file named **`nginx-values.yaml`** on **`gateway`** that sets specific LoadBalancer IP address for Ingress service
@@ -55,69 +45,53 @@ sudo kubectl --kubeconfig=/home/pi/.kube/config.yaml create namespace nginx
 ```yaml
 # nginx-values.yaml
 
-# Configuring the NGINX Ingress service
-service:
-  # Setting a specific LoadBalancer IP address
-  spec:
+controller:
+  service:
+    type: LoadBalancer
     loadBalancerIP: 10.0.0.100
 
-# Configuration for the NGINX controller
-controller:
   # Enabling metrics collection for Prometheus
   metrics:
-    enabled: true  # Set to true to enable Prometheus metrics on TCP port 10254
+    enabled: true  # Exposes metrics on TCP port 10254
 
   # Customizing access logs
   config:
-    # Changing the path where access logs are stored
-    access-log-path: "/data/access.log"  # Logs will be stored in /data/access.log instead of stdout
-    # Setting log format to JSON for better parsing
-    log-format-escape-json: "true"  # Access logs will be in JSON format for easier processing
+    access-log-path: "/data/access.log"
+    log-format-escape-json: "true"
 
-  # Adding extra volume mounts to the controller
+  # Sidecar access log streamer
   extraVolumeMounts:
     - name: data
-      mountPath: /data  # Mounting the /data directory in the NGINX pod
-
-  # Declaring extra volumes for the controller
+      mountPath: /data
   extraVolumes:
     - name: data
-      emptyDir: {}  # Creating an empty directory at /data for log storage
-
-  # Adding extra containers to the NGINX pod
+      emptyDir: {}
   extraContainers:
     - name: stream-accesslog
-      image: busybox  # Using the BusyBox image for the sidecar container
-      args:
-        - /bin/sh
-        - -c
-        - tail -n+1 -F /data/access.log  # Command to continuously stream the access log
-      imagePullPolicy: Always  # Ensuring the latest BusyBox image is used
-      resources: {}  # No specific resources allocated to the sidecar container
-      terminationMessagePath: /dev/termination-log
-      terminationMessagePolicy: File
+      image: busybox
+      args: ["/bin/sh","-c","tail -n+1 -F /data/access.log"]
+      imagePullPolicy: Always
       volumeMounts:
         - mountPath: /data
-          name: data  # Mounting the same /data volume as in the main container
+          name: data
 
-  # Enabling the use of configuration snippet annotations
-  allowSnippetAnnotations: true  # Allows using nginx.ingress.kubernetes.io/configuration-snippet annotations
+  # Allow advanced per-ingress configuration snippets
+  allowSnippetAnnotations: true
 
-# Note: Adjust the configurations as per your environment requirements.
-# The loadBalancerIP should be an available IP from your LoadBalancer pool.
-# Enable only the features that are needed for your use case.
+# Note: Ensure 10.0.0.100 is free within your MetalLB pool.
 ```
 
 - Install **`NGINX`** by deploying NGINX in the **`nginx namespace`** using the configuration from the **`nginx-values.yaml`** file
 
 ```bash
-helm --kubeconfig /home/pi/.kube/config.yaml install ingress-nginx ingress-nginx/ingress-nginx -f nginx-values.yaml --namespace nginx
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n nginx -f nginx-values.yaml --wait --timeout 5m
 ```
 
 - Confirm the Deployment
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n nginx get pods
+kubectl -n nginx get pods
+kubectl -n nginx get svc ingress-nginx-controller -o wide
 ```
 
 📌 If NGINX manifests needs to be re-installed post manifest update use the below commannd.
@@ -133,10 +107,9 @@ helm --kubeconfig /home/pi/.kube/config.yaml upgrade ingress-nginx ingress-nginx
 This configuration assigns a static external IP address from your Metal LB pool to the NGINX Ingress service of type LoadBalancer. The IP 10.0.0.100 is used as an example; you should replace it with an IP address from your pool.
 
 ```yaml
-# Configuring the NGINX Ingress service
-service:
-  # Setting a specific LoadBalancer IP address
-  spec:
+controller:
+  service:
+    type: LoadBalancer
     loadBalancerIP: 10.0.0.100
 ```
 
@@ -145,11 +118,9 @@ service:
 This enables Prometheus metrics in the NGINX Ingress controller. It opens a metrics port (TCP port 10254 by default) to expose metrics data that Prometheus can scrape.
 
 ```yaml
-# Configuration for the NGINX controller
 controller:
-  # Enabling metrics collection for Prometheus
   metrics:
-    enabled: true  # Set to true to enable Prometheus metrics on TCP port 10254
+    enabled: true
 ```
 
 #### 📢 Activating NGINX Access Logging
@@ -161,38 +132,24 @@ The logs are formatted in JSON, making it easier for log processing tools like F
 An additional sidecar container, **`stream-accesslog`**, is defined to tail the **`access.log`** file, ensuring that access logs are outputted separately from other application logs.
 
 ```yaml
-# Customizing access logs
+controller:
   config:
-    # Changing the path where access logs are stored
-    access-log-path: "/data/access.log"  # Logs will be stored in /data/access.log instead of stdout
-    # Setting log format to JSON for better parsing
-    log-format-escape-json: "true"  # Access logs will be in JSON format for easier processing
-
-  # Adding extra volume mounts to the controller
+    access-log-path: "/data/access.log"
+    log-format-escape-json: "true"
   extraVolumeMounts:
     - name: data
-      mountPath: /data  # Mounting the /data directory in the NGINX pod
-
-  # Declaring extra volumes for the controller
+      mountPath: /data
   extraVolumes:
     - name: data
-      emptyDir: {}  # Creating an empty directory at /data for log storage
-
-  # Adding extra containers to the NGINX pod
+      emptyDir: {}
   extraContainers:
     - name: stream-accesslog
-      image: busybox  # Using the BusyBox image for the sidecar container
-      args:
-        - /bin/sh
-        - -c
-        - tail -n+1 -F /data/access.log  # Command to continuously stream the access log
-      imagePullPolicy: Always  # Ensuring the latest BusyBox image is used
-      resources: {}  # No specific resources allocated to the sidecar container
-      terminationMessagePath: /dev/termination-log
-      terminationMessagePolicy: File
+      image: busybox
+      args: ["/bin/sh","-c","tail -n+1 -F /data/access.log"]
+      imagePullPolicy: Always
       volumeMounts:
         - mountPath: /data
-          name: data  # Mounting the same /data volume as in the main container
+          name: data
 ```
 
 #### 📢 Enabling Ingress Snippet Annotations

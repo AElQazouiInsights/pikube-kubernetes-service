@@ -14,7 +14,7 @@ Below is a sample `Dockerfile` that uses **Ubuntu 24.04** as the base image and 
 
 ```dockerfile
 # Dockerfile for PiKube Debug Pod
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 USER root
 
@@ -40,7 +40,7 @@ CMD ["sleep", "infinity"]
 - **Python**: `python3`, `pip3`, plus optional modules (`requests`, `psycopg2`, etc.)
 - **sleep infinity** ensures the container remains running so you can `kubectl exec -it` into it.
 
-## Build and Push the Image
+## Build and Push the Image (multi-arch)
 
 Below is how to build the Docker image locally, then push it to a Docker registry so PiKube  can pull it.
 
@@ -53,7 +53,13 @@ docker login
 -Build the image, replacing `<docker-username>` with your Docker username:
 
 ```bash
-docker build -t <docker-username>/debug:latest .
+# If your cluster is ARM64 (Raspberry/Orange Pi) and your workstation is x86_64,
+# build a multi-arch image with buildx and push directly to your registry:
+docker buildx create --use --name multi 2>/dev/null || true
+docker buildx build \
+  --platform linux/arm64,linux/amd64 \
+  -t <docker-username>/debug:latest \
+  --push .
 ```
 
 - Push to Docker Hub (or any other registry you prefer, such as GitHub Container Registry):
@@ -70,7 +76,22 @@ docker pull <docker-username>/debug:latest
 
 You can also use GitHub’s ghcr.io if you’d rather store the image there. The procedure is similar, except you must log in to GitHub Container Registry using a **personal access token** and push to `ghcr.io/<your-repo>/pikube-debug:latest`.
 
-## Deploy the Debug Pod in PiKube
+## Quick Start (no build): use a public multi-arch image
+
+If you don’t want to build your own image, use a well-known multi-arch toolbox image:
+
+```bash
+kubectl run netshoot -it --rm \
+  --image nicolaka/netshoot:latest \
+  --restart=Never -- bash
+
+# or network-multitool
+kubectl run multitool -it --rm \
+  --image wbitt/network-multitool:latest \
+  --restart=Never -- bash
+```
+
+## Deploy the Debug Pod in PiKube (custom image)
 
 Once your image is uploaded, you can create a **Kubernetes Pod manifest** referencing that image. Below `pikube-debug.yaml`, deploying it to a dedicated `debug` namespace.
 
@@ -106,7 +127,7 @@ spec:
 kubectl apply -f pikube-debug.yaml
 ```
 
-- Check pos status:
+- Check pod status:
 
 ```bash
 kubectl get pods -n debug
@@ -194,3 +215,16 @@ kubectl run pikube-debug -it --rm \
   --image=<docker-username>/debug:latest \
   --restart=Never -- bash
 ```
+
+### Ephemeral debug containers (attach to an existing Pod)
+
+Use `kubectl debug` to inject a temporary toolbox container into a running Pod (requires Kubernetes v1.25+):
+
+```bash
+# Add an ephemeral debug container to an existing pod (namespace and pod name as needed)
+kubectl debug deploy/myapp -n myns -it \
+  --image=nicolaka/netshoot:latest \
+  --target=myapp-container -- /bin/bash
+```
+
+This starts a throwaway container alongside your target container without modifying its image.

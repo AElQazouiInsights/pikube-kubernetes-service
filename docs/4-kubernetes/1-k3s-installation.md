@@ -306,6 +306,7 @@ disable:
   - local-storage    # Using Longhorn for distributed storage
   - servicelb        # Using MetalLB for load balancing
   - traefik          # Using NGINX Ingress Controller
+  - metrics-server   # Using custom monitoring stack (install later in Monitoring section)
 
 # Monitoring configuration
 etcd-expose-metrics: true
@@ -501,8 +502,8 @@ scp -i ~/.ssh/gateway-pi pi@blueberry-master:~/k3s.yaml ~/.kube/config
 sudo chown $USER:$USER ~/.kube/config
 chmod 644 ~/.kube/config
 
-# Update server address and cluster context
-sed -i 's|server: https://127.0.0.1:6443|server: https://10.0.0.1:6443|g' ~/.kube/config
+# Update server address and cluster context (prefer gateway FQDN)
+sed -i 's|server: https://127.0.0.1:6443|server: https://gateway.picluster.quantfinancehub.com:6443|g' ~/.kube/config
 sed -i 's|name: default|name: pikube-cluster|g' ~/.kube/config
 sed -i 's|cluster: default|cluster: pikube-cluster|g' ~/.kube/config
 sed -i 's|current-context: default|current-context: pikube-admin@pikube-cluster|g' ~/.kube/config
@@ -510,6 +511,10 @@ sed -i 's|current-context: default|current-context: pikube-admin@pikube-cluster|
 # Add KUBECONFIG to bashrc for persistent access
 echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
 source ~/.bashrc
+
+> [!TIP]
+> If your gateway FQDN is not resolvable yet, temporarily use the gateway IP:
+> `https://10.0.0.1:6443` in the `server:` field, then switch to the FQDN once DNS is in place.
 ```
 
 ## Cluster Upgrades
@@ -532,7 +537,9 @@ K3s supports semi-automated upgrades using Rancher's System Upgrade Controller.
 #### 1. Install System Upgrade Controller
 
 ```bash
+kubectl create namespace system-upgrade --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/latest/download/system-upgrade-controller.yaml
+kubectl -n system-upgrade rollout status deploy/system-upgrade-controller --timeout=3m
 ```
 
 #### 2. Create Upgrade Plans
@@ -562,9 +569,13 @@ spec:
   serviceAccountName: system-upgrade
   concurrency: 1
   cordon: true
+  drain:
+    force: true
+    deleteEmptyDirData: true
+    ignoreDaemonSets: true
   upgrade:
     image: rancher/k3s-upgrade
-  version: v1.33.1+k3s1  # Replace with desired version
+  version: v1.34.1+k3s1  # Set explicitly (see Dynamic Version Options below)
 ```
 
 Create agent upgrade plan (`k3s-agent-upgrade.yaml`):
@@ -590,9 +601,13 @@ spec:
       - k3s-server
   concurrency: 1
   cordon: true
+  drain:
+    force: true
+    deleteEmptyDirData: true
+    ignoreDaemonSets: true
   upgrade:
     image: rancher/k3s-upgrade
-  version: v1.33.1+k3s1  # Replace with desired version
+  version: v1.34.1+k3s1  # Set explicitly (see Dynamic Version Options below)
 ```
 
 #### 3. Apply Initial Upgrade Plans
@@ -614,7 +629,7 @@ To actually perform an upgrade, you need to **update the version** in both plans
 # Get the latest available K3s version
 latest_version=$(curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest | jq -r '.tag_name')
 echo "Available version: $latest_version"
-echo "Current version: v1.33.1+k3s1"
+echo "Current version: v1.34.1+k3s1"
 
 # Only proceed if you want to upgrade to this version
 # Update the server plan to the new version
@@ -636,6 +651,99 @@ kubectl get pods -n system-upgrade
 # Monitor node versions during upgrade
 watch kubectl get nodes -o wide
 ```
+
+> [!TIP]
+> If a plan appears stuck, inspect it and its Jobs:
+> `kubectl -n system-upgrade describe plan k3s-server` and
+> `kubectl -n system-upgrade describe jobs`.
+
+### Dynamic Version Options
+
+Pick one of these to avoid hard‑coding the version in Plans:
+
+- Option A – Track a channel (automatic within a track)
+
+  Use a K3s update channel instead of a fixed `version`. Remove `spec.version` and add `spec.channel`:
+
+  ```yaml
+  spec:
+    channel: v1.34   # latest 1.34.x only; use 'stable' to track latest across minors
+    upgrade:
+      image: rancher/k3s-upgrade
+  ```
+
+  Ready to copy/paste (preferred):
+
+  - Server plan (tracks latest 1.34.x)
+    ```yaml
+    apiVersion: upgrade.cattle.io/v1
+    kind: Plan
+    metadata:
+      name: k3s-server
+      namespace: system-upgrade
+    spec:
+      concurrency: 1
+      cordon: true
+      drain:
+        force: true
+        deleteEmptyDirData: true
+        ignoreDaemonSets: true
+      nodeSelector:
+        matchExpressions:
+          - key: node-role.kubernetes.io/control-plane
+            operator: In
+            values: ["true"]
+      serviceAccountName: system-upgrade
+      upgrade:
+        image: rancher/k3s-upgrade
+      channel: https://update.k3s.io/v1-release/channels/v1.34
+    ```
+
+  - Agent plan (waits for server plan, tracks latest 1.34.x)
+    ```yaml
+    apiVersion: upgrade.cattle.io/v1
+    kind: Plan
+    metadata:
+      name: k3s-agent
+      namespace: system-upgrade
+    spec:
+      concurrency: 2
+      cordon: true
+      drain:
+        force: true
+        deleteEmptyDirData: true
+        ignoreDaemonSets: true
+      nodeSelector:
+        matchExpressions:
+          - key: node-role.kubernetes.io/control-plane
+            operator: DoesNotExist
+      prepare:
+        image: rancher/k3s-upgrade
+        args: ["prepare", "k3s-server"]
+      serviceAccountName: system-upgrade
+      upgrade:
+        image: rancher/k3s-upgrade
+      channel: https://update.k3s.io/v1-release/channels/v1.34
+    ```
+
+  - To track the latest stable across minors instead, replace the `channel:` line with:
+    ```yaml
+    channel: https://update.k3s.io/v1-release/channels/stable
+    ```
+
+- Option B – Template at apply time (pin but automate)
+
+  Keep `version: ${K3S_TARGET_VERSION}` in YAML and inject it at apply:
+
+  ```bash
+  export K3S_TARGET_VERSION=$(curl -s https://api.github.com/repos/k3s-io/k3s/releases/latest | jq -r '.tag_name')
+  envsubst < k3s-server-upgrade.yaml | kubectl apply -f -
+  envsubst < k3s-agent-upgrade.yaml  | kubectl apply -f -
+  ```
+
+- Option C – GitOps bot (pin via PR)
+
+  Use Renovate or a scheduled GitHub Action to bump `spec.version` and open a PR. Merging triggers SUC.
 
 ### Manual Node Updates
 
@@ -746,3 +854,18 @@ kubectl get pods -n kube-system
 # View cluster resources
 kubectl get all --all-namespaces
 ```
+
+> [!NOTE]
+> `kubectl top` requires a metrics pipeline. In this cluster, `metrics-server` is disabled in K3s and metrics are provided by the
+> monitoring stack installed later. If `kubectl top` fails now, continue to the Monitoring section first.
+
+## Optional Tweaks & Safety
+
+- Pre‑upgrade snapshot (embedded etcd):
+  ```bash
+  # Run on a control-plane node before upgrading
+  sudo k3s etcd-snapshot save --name pre-upgrade-$(date +%Y%m%d-%H%M)
+  ```
+- Longhorn: ensure healthy volumes/replicas before draining nodes.
+- Concurrency: you can increase `spec.concurrency` in the agent Plan to speed rollouts on larger clusters.
+- Rollback: patch both Plans’ `spec.version` back to the previous K3s release to roll back.

@@ -345,6 +345,11 @@ Restart dnsmasq:
 sudo systemctl restart dnsmasq
 ```
 
+> [!NOTE]
+> If you also use `dnsmasq` with `local=/picluster.quantfinancehub.com/` and `host-record=` entries on the gateway,
+> ensure they do not conflict with the authoritative Bind9 zone on 10.0.0.10. Prefer forwarding to Bind9 for this
+> domain and keep any `host-record` entries only as a temporary fallback during bootstrap.
+
 ### Step 3: External DNS Configuration
 
 For TLS certificate validation, configure CloudFlare DNS to resolve the same domain to your public IP addresses.

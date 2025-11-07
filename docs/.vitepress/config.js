@@ -46,7 +46,7 @@ export default withMermaid(
                 collapsed: true,
                 items: [
                     { text: 'S3 Backup Backend (Minio)', link: '/3-external-services/1-s3-backup-backend-minio-setup' },
-                    { text: 'External Secret Management (Vault)', link: '/3-external-services/2-external-secret-management-vault' },
+                    { text: 'Secret Management (Vault + ESO)', link: '/3-external-services/2-external-secret-management-vault' },
                 ],
                 },
                 {

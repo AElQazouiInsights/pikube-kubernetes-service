@@ -2,7 +2,7 @@
 title: "PiKube Cluster Nodes: Professional Configuration Guide"
 permalink: /docs/2-cluster-setup/2-cluster-nodes-configuration-professional
 description: Professional configuration guide for setting up the nodes of the PiKube Kubernetes Cluster. It covers the setup for Ubuntu cloud-init configuration files, basic OS configuration, and storage options for both Raspberry Pi and Orange Pi nodes.
-last_modified_at: "2025-07-09"
+last_modified_at: "2025-11-06"
 ---
 
 # {{ $frontmatter.title }}
@@ -25,16 +25,18 @@ The PiKube Kubernetes Cluster comprises a heterogeneous ARM-based infrastructure
 
 **Master Nodes (Control Plane):**
 
-- `blueberry-master` (Raspberry Pi 4B, 4GB)
-- `strawberry-master` (Raspberry Pi 4B, 8GB)
-- `blackberry-master` (Raspberry Pi 4B, 8GB)
+- `blueberry-master` (Raspberry Pi 4B, 8GB)
+- `strawberry-master` (Raspberry Pi 4B, 4GB)
+- `blackberry-master` (Raspberry Pi 4B, 4GB)
 
 **Worker Nodes (Compute Resources):**
 
 - `cranberry-worker` (Raspberry Pi 5, 8GB)
-- `raspberry-worker` (Raspberry Pi 3B+, 1GB)
-- `orange-worker` (Orange Pi 5B, 16GB)
-- `mandarine-worker` (Orange Pi 5B, 16GB)
+- `orange-worker` (Orange Pi 5, 16GB)
+- `mandarine-worker` (Orange Pi 5, 16GB)
+- `lemon-worker` (Orange Pi 5 Ultra, 16GB + 931GB NVMe)
+- `clementine-worker` (Orange Pi 5 Ultra, 16GB + 931GB NVMe)
+- `grapefruit-worker` (Orange Pi 5 Ultra, 16GB + 931GB NVMe)
 
 ## Unified Node Configuration
 
