@@ -1,8 +1,8 @@
 ---
-title: Ingress Controller Using Traefik in K3S
+title: Ingress Controller Using Traefik (Alternative)
 permalink: /docs/5-networking/4-ingress-controller-traefik/
-description: How to configure Ingress Contoller based on Traefik in PiKube Kubernetes Service.
-last_modified_at: "17-12-2023"
+description: Alternative guide for Traefik. PiKube defaults to ingress-nginx; do not install both.
+last_modified_at: "2025-11-09"
 ---
 
 # {{ $frontmatter.title }}
@@ -29,13 +29,20 @@ last_modified_at: "17-12-2023"
   - [Creating HTTPS Ingress for Dashboard Access](#creating-https-ingress-for-dashboard-access)
   - [HTTP to HTTPS Redirection Ingress](#http-to-https-redirection-ingress) -->
 
-For handling all incoming HTTP/HTTPS traffic to exposed services in K3S, an **`Ingress Controller`** is essential. [**`Traefik`**](https://doc.traefik.io/traefik/), a Kubernetes-compliant Ingress Controller, typically comes pre-installed with K3S. As a modern HTTP reverse proxy and load balancer, **`Traefik`** facilitates the deployment and management of microservices, streamlining networking complexities associated with application deployment and operation.
+For handling all incoming HTTP/HTTPS traffic to exposed services in K3s, an **Ingress Controller** is essential.
+
+> [!IMPORTANT] 🚦 PiKube default vs. Traefik alternative  
+> - The **PiKube reference setup uses NGINX Ingress** as the default ingress controller.  
+> - The built-in K3s Traefik add-on is disabled via `disable: traefik` in `/etc/rancher/k3s/config.yaml`.  
+> - This page describes an **optional, custom Traefik deployment**. Use it only if you intentionally choose Traefik instead of NGINX, and do **not** run both controllers concurrently.
+
+[**Traefik**](https://doc.traefik.io/traefik/) is a Kubernetes‑compliant Ingress Controller and modern HTTP reverse proxy / load balancer. It can be deployed manually (via Helm) as an alternative to NGINX for users who prefer Traefik’s CRDs and routing model.
 
 **Customization and Manual Installation:**
 
 - **`Disabling Default Traefik Add-on`**
   
-  During K3S installation, the default Traefik add-on is disabled to allow manual installation refer to [**`Master Nodes Set Up`**](https://github.com/Crypto-Aggressor/PiKube-Kubernetes-Cluster/blob/production/documentation/2.4-k3s-installation.md#3-setting-up-master-nodes). This approach offers more control over Traefik’s version and initial setup.
+  During PiKube K3s installation, the default Traefik add-on is disabled to allow **manual installation in a dedicated namespace** (if Traefik is chosen at all). This approach offers more control over Traefik’s version and initial setup.
 
 - **`Post-Installation Customization`**
   
@@ -584,3 +591,5 @@ kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f traefik-ingressroute.ya
 ``` -->
 
 After applying these manifests, you can access the Traefik Dashboard through the configured domain (https://traefik.picluster.quantfinancehub.com). This setup provides secure and authenticated access to the dashboard, leveraging cert-manager for certificate management and Traefik’s advanced routing capabilities.
+> IMPORTANT
+> PiKube’s default ingress controller is NGINX. Traefik is disabled via K3s `disable` settings. Use this page only if you intentionally choose Traefik instead of NGINX. Do not deploy both controllers concurrently.

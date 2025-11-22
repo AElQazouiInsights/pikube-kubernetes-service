@@ -134,6 +134,7 @@ The gateway utilizes an **industrial-grade storage architecture** optimized for 
 **Storage Foundation**: SanDisk Industrial EDGE MicroSD 32GB CLASS 10 A1
 
 This industrial-grade storage solution is specifically designed for:
+
 - **Continuous Operation**: 24/7 reliability for critical infrastructure services
 - **High Endurance**: Extended write/erase cycles for logging and configuration updates
 - **Temperature Tolerance**: Stable operation across varying environmental conditions
@@ -147,7 +148,7 @@ This industrial-grade storage solution is specifically designed for:
 
 The gateway runs **Ubuntu 24.04.2 LTS** to ensure consistency across the entire cluster infrastructure and leverage the latest security updates and kernel optimizations.
 
-#### Installation Steps:
+#### Installation Steps
 
 1. **Download Ubuntu Server Image**
    - Source: [Ubuntu Raspberry Pi Downloads](https://ubuntu.com/download/raspberry-pi)
@@ -165,7 +166,7 @@ The gateway runs **Ubuntu 24.04.2 LTS** to ensure consistency across the entire 
 
 The gateway uses **cloud-init** for automated initial configuration, ensuring consistent and repeatable deployments.
 
-#### User Data Configuration (`/boot/user-data`):
+#### User Data Configuration (`/boot/user-data`)
 
 ```yaml
 #cloud-config
@@ -210,7 +211,7 @@ power_state:
   condition: true
 ```
 
-#### Network Configuration (`/boot/network-config`):
+#### Network Configuration (`/boot/network-config`)
 
 ```yaml
 # Cloud-init network configuration
@@ -241,7 +242,7 @@ wifis:
 
 ### 🔑 SSH Key Management
 
-#### Generate SSH Key Pair:
+#### Generate SSH Key Pair
 
 ```bash
 # Generate RSA 4096-bit key pair
@@ -252,7 +253,7 @@ ssh-keygen -t rsa -b 4096 -f ~/.ssh/gateway-pi -C "gateway@picluster.quantfinanc
 # ~/.ssh/gateway-pi.pub  (public key)
 ```
 
-#### Copy Public Key to Gateway:
+#### Copy Public Key to Gateway
 
 ```bash
 # Copy public key content to cloud-init user-data
@@ -284,7 +285,7 @@ sudo apt update && sudo apt full-upgrade -y
 sudo reboot
 ```
 
-#### Remove Unnecessary Packages:
+#### Remove Unnecessary Packages
 
 ```bash
 # Remove snap packages to free resources
@@ -299,7 +300,7 @@ sudo apt autoremove -y
 sudo apt autoclean
 ```
 
-#### Install Essential Utilities:
+#### Install Essential Utilities
 
 ```bash
 # Network and system utilities
@@ -333,7 +334,7 @@ sudo apt install -y \
 
 ### ⚙️ System Optimization
 
-#### GPU Memory Configuration:
+#### GPU Memory Configuration
 
 ```bash
 # Optimize GPU memory for headless operation
@@ -388,7 +389,7 @@ The gateway implements **nftables** as the modern, enterprise-grade firewall sol
 - **Future-Proof**: Official replacement for iptables with active development
 - **Atomic Operations**: Rule updates are applied atomically, preventing inconsistent states
 
-#### nftables Installation & Setup:
+#### nftables Installation & Setup
 
 ```bash
 # Install nftables
@@ -451,7 +452,7 @@ table ip nat {
 }
 ```
 
-#### Network Definitions (`/etc/nftables.d/defines.nft`):
+#### Network Definitions (`/etc/nftables.d/defines.nft`)
 
 ```bash
 # Network Interface Definitions
@@ -519,7 +520,7 @@ define minio_ports = { 9091, 9092 }
 define k8s_api_port = 6443
 ```
 
-#### Input Traffic Rules (`/etc/nftables.d/filter-input.nft`):
+#### Input Traffic Rules (`/etc/nftables.d/filter-input.nft`)
 
 ```bash
 chain input {
@@ -547,7 +548,7 @@ chain input {
 }
 ```
 
-#### Forward Traffic Rules (`/etc/nftables.d/filter-forward.nft`):
+#### Forward Traffic Rules (`/etc/nftables.d/filter-forward.nft`)
 
 ```bash
 chain forward {
@@ -590,7 +591,7 @@ chain forward {
 }
 ```
 
-#### Output Traffic Rules (`/etc/nftables.d/filter-output.nft`):
+#### Output Traffic Rules (`/etc/nftables.d/filter-output.nft`)
 
 ```bash
 chain output {
@@ -646,7 +647,7 @@ chain postrouting {
 }
 ```
 
-#### Network Sets (`/etc/nftables.d/sets.nft`):
+#### Network Sets (`/etc/nftables.d/sets.nft`)
 
 ```bash
 # Blackhole addresses for security
@@ -722,7 +723,7 @@ sudo systemctl enable nftables
 sudo systemctl start nftables
 ```
 
-#### Firewall Testing & Validation:
+#### Firewall Testing & Validation
 
 ```bash
 # Test services are accessible
@@ -744,7 +745,7 @@ sudo systemctl status nftables
 
 **dnsmasq** provides lightweight, high-performance DNS and DHCP services optimized for the cluster environment. The gateway configuration includes intelligent DNS forwarding, static IP management, and comprehensive logging.
 
-#### Installation & Basic Setup:
+#### Installation & Basic Setup
 
 ```bash
 # Install dnsmasq
@@ -760,7 +761,7 @@ sudo mkdir -p /etc/dnsmasq.d/
 sudo cp /etc/dnsmasq.conf /etc/dnsmasq.conf.backup
 ```
 
-#### Main Configuration (`/etc/dnsmasq.d/dnsmasq.conf`):
+#### Main Configuration (`/etc/dnsmasq.d/dnsmasq.conf`)
 
 ```bash
 ########################################################################
@@ -917,7 +918,7 @@ log-facility=daemon            # Use daemon facility for logging
 log-async=50                   # Asynchronous logging buffer
 ```
 
-#### Enable and Start dnsmasq:
+#### Enable and Start dnsmasq
 
 ```bash
 # Enable dnsmasq service
@@ -932,7 +933,7 @@ nslookup blueberry-master.picluster.quantfinancehub.com 10.0.0.1
 nslookup google.com 10.0.0.1
 ```
 
-#### DHCP/DNS Management Commands:
+#### DHCP/DNS Management Commands
 
 ```bash
 # Monitor DHCP leases
@@ -958,7 +959,7 @@ dig @10.0.0.1 blueberry-master.picluster.quantfinancehub.com
 dig @10.0.0.1 google.com
 ```
 
-#### DNS Resolver Configuration:
+#### DNS Resolver Configuration
 
 Update system DNS resolver to use the gateway:
 
@@ -996,7 +997,7 @@ sudo apt install chrony -y
 sudo nano /etc/chrony/chrony.conf
 ```
 
-#### Gateway NTP Server Configuration (`/etc/chrony/chrony.conf`):
+#### Gateway NTP Server Configuration (`/etc/chrony/chrony.conf`)
 
 ```bash
 # NTP Server Configuration for PiKube Gateway
@@ -1045,7 +1046,7 @@ maxupdateskew 100.0
 makestep 1.0 3
 ```
 
-#### Start and Enable chrony:
+#### Start and Enable chrony
 
 ```bash
 # Enable chrony service
@@ -1060,7 +1061,7 @@ chronyc sources -v
 chronyc tracking
 ```
 
-#### NTP Client Configuration (Cluster Nodes):
+#### NTP Client Configuration (Cluster Nodes)
 
 For cluster nodes, configure them to use the gateway as their NTP source:
 
@@ -1072,7 +1073,7 @@ driftfile /var/lib/chrony/chrony.drift
 rtcsync
 ```
 
-#### NTP Monitoring & Troubleshooting:
+#### NTP Monitoring & Troubleshooting
 
 ```bash
 # Check time synchronization status
@@ -1100,7 +1101,7 @@ ntpdate -q 10.0.0.1
 
 Enable seamless access to cluster resources from your home network by configuring static routes.
 
-#### Windows Client Configuration:
+#### Windows Client Configuration
 
 ```powershell
 # Add persistent static route (Run as Administrator)
@@ -1113,7 +1114,7 @@ ROUTE PRINT
 ROUTE DELETE 10.0.0.0 MASK 255.255.255.0 192.168.0.10
 ```
 
-#### Linux Client Configuration:
+#### Linux Client Configuration
 
 ```bash
 # Add to netplan configuration
@@ -1139,7 +1140,7 @@ sudo netplan apply
 ip route show
 ```
 
-#### macOS Client Configuration:
+#### macOS Client Configuration
 
 ```bash
 # Add static route
@@ -1156,7 +1157,7 @@ netstat -rn | grep 10.0.0.0
 
 ### 📊 System Monitoring
 
-#### Current System Status:
+#### Current System Status
 
 ```bash
 # System information
@@ -1179,7 +1180,7 @@ pi@gateway:~$ ip addr show
     inet 192.168.0.10/24 brd 192.168.0.255 scope global wlan0
 ```
 
-#### Performance Monitoring Commands:
+#### Performance Monitoring Commands
 
 ```bash
 # System resource usage
@@ -1203,7 +1204,7 @@ watch -n 1 chronyc tracking
 
 ### 🔧 Troubleshooting Guide
 
-#### Network Connectivity Issues:
+#### Network Connectivity Issues
 
 ```bash
 # Check interface status
@@ -1228,7 +1229,7 @@ nslookup google.com
 dig @10.0.0.1 blueberry-master.picluster.quantfinancehub.com
 ```
 
-#### Firewall Troubleshooting:
+#### Firewall Troubleshooting
 
 ```bash
 # Check firewall status
@@ -1267,7 +1268,7 @@ dig @10.0.0.1 blueberry-master.picluster.quantfinancehub.com
 sudo journalctl -u dnsmasq -f
 ```
 
-#### NTP Synchronization Issues:
+#### NTP Synchronization Issues
 
 ```bash
 # Check chrony status
@@ -1294,7 +1295,7 @@ The gateway configuration can be automated using Ansible roles:
 - **quantfinancehub.ntp**: NTP server and client configuration
 - **quantfinancehub.firewall**: nftables firewall management
 
-#### Ansible Inventory Integration:
+#### Ansible Inventory Integration
 
 ```yaml
 # ansible/inventory.yml
@@ -1325,7 +1326,7 @@ all:
           mac: dc:a6:32:73:69:c9
 ```
 
-#### Gateway-specific Variables:
+#### Gateway-specific Variables
 
 ```yaml
 # ansible/host_vars/gateway.yml
@@ -1351,7 +1352,7 @@ ntp_config:
 
 ### 🔮 Future Enhancements
 
-#### Planned Improvements:
+#### Planned Improvements
 
 1. **High Availability**: Secondary gateway for redundancy
 2. **Advanced Monitoring**: Prometheus metrics collection
@@ -1359,7 +1360,7 @@ ntp_config:
 4. **Performance Optimization**: Traffic shaping and QoS
 5. **Backup & Recovery**: Automated configuration backups
 
-#### Integration Points:
+#### Integration Points
 
 - **Kubernetes Services**: MetalLB load balancer integration
 - **Service Mesh**: Linkerd gateway integration
@@ -1371,6 +1372,5 @@ ntp_config:
 This comprehensive gateway configuration provides enterprise-grade network infrastructure for your PiKube Kubernetes cluster. The combination of advanced firewall protection, intelligent DNS/DHCP management, and high-precision time synchronization creates a robust foundation for reliable cluster operations.
 
 For related configurations, see:
-- [PiKube DNS Architecture](./3-dns-architecture)
 
-*Documentation based on live system analysis and professional network engineering practices.*
+- [PiKube DNS Architecture](./3-dns-architecture)

@@ -37,6 +37,8 @@ Detailed steps for deploying the observability framework are provided in the fol
 - **Logging**
   - Overview of Logging Architecture (EFK + LG)
   - Guide for Loki Installation and Configuration (Log Aggregation)
+    - Loki stores logs in the **in-cluster HA MinIO Tenant** (`https://s3.picluster.quantfinancehub.com`, bucket `k3s-loki`), which runs on Longhorn NVMe volumes.  
+     - Loki’s MinIO credentials (`user`/`key`) are managed in Vault under `secret/minio/loki` and projected into Kubernetes via **External Secrets Operator** (e.g. `loki-minio-secret` in the `logging` namespace), ensuring S3 access keys are never hard-coded in manifests. The Loki Helm values then reference these credentials to configure the S3 backend.
   - Steps for Elasticsearch and Kibana Installation and Configuration (Log Analytics)
   - Instructions for Fluent Bit/Fluentd Installation and Configuration (Log Collection and Distribution)
 
@@ -45,3 +47,4 @@ Detailed steps for deploying the observability framework are provided in the fol
 
 - **Distributed Tracing**
   - Grafana Tempo Installation and Configuration Guide
+    - Tempo uses the same HA MinIO Tenant as its primary S3 backend (bucket `k3s-tempo`), with credentials sourced from Vault (`secret/minio/tempo`) via External Secrets, and traces periodically mirrored to the external MinIO instance on `blueberry-master` for disaster recovery.

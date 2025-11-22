@@ -22,9 +22,18 @@ Longhorn is a lightweight, reliable, and user-friendly distributed block storage
 
 ## Implementation Using Internet Small Computer System Interface (iSCSI)
 
-Longhorn requires the `open-iscsi` package on all cluster nodes, with the `iscsid` daemon running on all worker nodes. Additionally, for optimal compatibility and functionality, ensure that `nfs-common`, `open-iscsi`, `cryptsetup`, and `dmsetup` are installed on each node. For instance, on `cranberry-worker`, all required packages `[nfs-common open-iscsi cryptsetup dmsetup]` are confirmed to be installed.
+Longhorn requires the `open-iscsi` package on all cluster nodes, with the `iscsid` daemon running on all worker nodes. Additionally, for optimal compatibility and functionality, ensure that `nfs-common`, `open-iscsi`, `cryptsetup`, and `dmsetup` are installed on each node.
 
-For more details on the implementation, refer to [**`Longhorn Engine documentation`**][(](https://github.com/longhorn/longhorn-engine)):
+> [!IMPORTANT] 🔧 PiKube requirement  
+> On PiKube, these packages **must be installed on every k3s node** (masters and workers). Longhorn will not function correctly if `open-iscsi` or `iscsid` is missing on any node that might attach volumes.
+>
+> Quick validation on each node:
+> ```bash
+> dpkg -l | egrep 'open-iscsi|nfs-common|cryptsetup|dmsetup'
+> systemctl is-active iscsid
+> ```
+
+For more details on the implementation, refer to [**`Longhorn Engine documentation`**](https://github.com/longhorn/longhorn-engine):
 
 <p align="center">
     <img alt="longhorn"
@@ -51,6 +60,9 @@ Inside **`iscsid.conf`**, look for lines related to authentication. These might 
 
 When multipath is active on storage nodes, it can automatically manage block devices, including those created by Longhorn. This might lead to errors when starting Pods that use Longhorn volumes, such as "volume already mounted."
 
+> [!NOTE] 🧬 PiKube and multipath  
+> PiKube runs `multipathd` on the Orange Pi worker nodes. We **keep multipath enabled** for future external/SAN storage scenarios, but explicitly instruct it to ignore Longhorn‑managed local disks. The blacklist below prevents multipath from claiming Longhorn volumes while still allowing multipath to be used for other devices if needed.
+
 **Solution**: To resolve this, Longhorn devices need to be blacklisted in the multipath configuration. This prevents multipath from managing these devices.
 
 To modify **`Multipath`** configuration, open the **`/etc/multipath.conf`** file on each node where multipath is running, this includes nodes using Longhorn for storage, and add the blacklist command.
@@ -71,6 +83,8 @@ sudo systemctl restart multipathd
 
 ## Longhorn Installation Procedure Using Helm
 
+### Step 1: Add Longhorn Helm Repository
+
 - On **`gateway`**, add **`Longhorn`**'s Helm Repository
 
 ```bash
@@ -89,11 +103,30 @@ helm repo update
 kubectl create namespace longhorn-system
 ```
 
-- Create a **`longhorn-values.yaml`** file for custom configurations
+### Step 2: Label Storage Nodes (Fast Tier Only)
+
+PiKube’s primary Longhorn storage tier lives on the three NVMe workers. To ensure Longhorn only creates default disks on these nodes, enable the **Create Default Disk on Labeled Nodes** behavior and label only the NVMe nodes:
+
+- Apply the label on NVMe workers **before** installing Longhorn:
+
+```bash
+kubectl label node lemon-worker      node.longhorn.io/create-default-disk=true
+kubectl label node clementine-worker node.longhorn.io/create-default-disk=true
+kubectl label node grapefruit-worker node.longhorn.io/create-default-disk=true
+```
+
+Longhorn will automatically create data disks only on nodes with this label when the corresponding setting is enabled.
+
+### Step 3: Create `longhorn-values.yaml` (NVMe fast tier + NGINX Ingress)
+
+- Create a **`longhorn-values.yaml`** file for custom configurations:
 
 ```yaml
 defaultSettings:
-  defaultDataPath: "/storage"
+  # Only create default disks on labeled storage nodes
+  createDefaultDiskLabeledNodes: true
+  # PiKube: use NVMe fast tier on Ultra workers
+  defaultDataPath: "/var/lib/longhorn/fast"
 
 ingress:
   enabled: true
@@ -104,7 +137,7 @@ ingress:
   path: "/"
   annotations:
     nginx.ingress.kubernetes.io/auth-type: basic
-    nginx.ingress.kubernetes.io/auth-secret: nginx/basic-auth-secret
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth-secret
     nginx.ingress.kubernetes.io/service-upstream: "true"
     cert-manager.io/cluster-issuer: letsencrypt-issuer
     cert-manager.io/common-name: longhorn.picluster.quantfinancehub.com
@@ -112,11 +145,54 @@ ingress:
 
 📢 This configuration:
 
-➜ Sets **/storage** as the default path for data storage.
+➜ Uses the **NVMe fast tier** on the three Orange Pi 5 Ultra workers (`/var/lib/longhorn/fast`) as the default Longhorn data path.
 
-➜ Enables and configures an **`Ingress`** resource for accessing the **`Longhorn dashboard`** through **`NGINX`**.
+➜ Enables and configures an **Ingress** resource for accessing the **Longhorn dashboard** through **NGINX**.
 
-➜ Configures **`basic authentication`** and **`TLS`** for the dashboard using **`Cert-Manager`**.
+➜ Configures **basic authentication** and **TLS** for the dashboard using **cert-manager**.
+
+### Basic-auth secret for Longhorn via Vault + External Secrets
+
+On PiKube, the HTTP basic-auth credentials used by NGINX are stored in **Vault on the gateway (`10.0.0.1`)** at:
+
+- **Path:** `secret/ingress/basic_auth`  
+- **Field:** `htpasswd-pair` (a single `username:hash` `htpasswd` line)
+
+To project this into Kubernetes for Longhorn, create an `ExternalSecret` in the `longhorn-system` namespace so that the Ingress annotation
+
+```yaml
+nginx.ingress.kubernetes.io/auth-secret: basic-auth-secret
+```
+
+has a matching Secret in the same namespace:
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: longhorn-basic-auth
+  namespace: longhorn-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: basic-auth-secret   # Secret referenced by the Ingress
+    creationPolicy: Owner
+  data:
+    - secretKey: auth         # Key expected by NGINX
+      remoteRef:
+        key: secret/ingress/basic_auth
+        property: htpasswd-pair
+```
+
+> [!NOTE]
+> - The same Vault path (`secret/ingress/basic_auth`) can be reused for other NGINX Ingresses (Prometheus, Linkerd Viz, etc.) by creating similar `ExternalSecret` objects in their namespaces.  
+> - The detailed pattern for managing this secret in Vault and External Secrets is described in `docs/5-networking/4-ingress-controller-nginx.md`.
+
+> [!WARNING] 🔐 SSO integration planned  
+> This initial configuration uses basic auth in front of the Longhorn UI. In the PiKube roadmap, GUI access will be unified behind **Keycloak + OAuth2-Proxy** (see `docs/7-single-sign-on/1-sso-with-keycloak-and-oauth2-proxy.md`). Once SSO is in place, the Longhorn Ingress will be updated to use OAuth2‑Proxy/Keycloak instead of static basic auth. Treat this basic‑auth ingress as a **bootstrap configuration**, not the final security model. The live cluster is already starting this migration by wiring Longhorn’s Ingress through OAuth2‑Proxy/Keycloak instead of relying solely on `basic-auth-secret`.
 
 - Install **`Longhorn`** in the **`longhorn-system`** namespace using **`longhorn-values.yaml`** file
 
@@ -133,114 +209,58 @@ TODO
 - To confirm that the Longhorn installation has succeeded:
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n longhorn-system get pod
+kubectl -n longhorn-system get pods
 ```
 
-## Configuring Access to Longhorn UI with Traefik Ingress
+## Storage Strategy: Tiers and Data Paths in PiKube
 
-To make the **`Longhorn UI`** accessible through a specific URL (`longhorn.picluster.quantfinancehub.com`) via the **`Traefik Ingress Controller`**, Ingress resources needs to be created. These resources will manage traffic, ensuring secure HTTPS connections and **`redirecting HTTP to HTTPS`**. **`Basic HTTP authentication`** will be implemented for security, as **`Longhorn's frontend`** doesn't provide its own authentication mechanism.
+PiKube uses a heterogeneous mix of SD cards and NVMe disks. The storage strategy is:
 
-📌 **Note**
+- Treat **NVMe as the primary tier** for all important workloads (reliable, high‑performance).  
+- Treat **SD cards as OS + optional “slow” tier** that can be enabled later for bulk, low‑I/O data.
 
-*Traefik 2.x has a known issue with WebSocket headers that affects Longhorn UI API calls. Refer to Longhorn's "Troubleshooting Traefik 2.x as an ingress controller" documentation for solutions.*
+Longhorn sits on top of this design and exposes it as two logical tiers, mapped to clear on‑disk paths.
 
-- Create a **`longhorn_ingress.yaml`** file
+### Fast tier (NVMe) – primary and configured by default
 
-  - **`API Issue Mitigation with Custom Headers`**: Setting custom request headers to support WebSocket connections.
+- Nodes: the three Orange Pi 5 Ultra workers (`lemon-worker`, `clementine-worker`, `grapefruit-worker`).  
+- Path: mount the NVMe disk on each of these nodes at:
+  - `/var/lib/longhorn/fast`
+- Longhorn disk configuration:
+  - One disk per NVMe node pointing to `/var/lib/longhorn/fast`.  
+  - Disk tag: `fast` (or `nvme` if you prefer).
+- StorageClass:
+  - `longhorn` (default) – uses disks tagged `fast` only.  
+  - **All standard PVCs in PiKube should use this class.**
 
-  - **`HTTPS Ingress Resource`**: Configuring Ingress to utilize HTTPS, enable TLS, and apply necessary middleware.
+This tier is what the Helm values in this document configure out of the box (`defaultDataPath: "/var/lib/longhorn/fast"`).
 
-  - **`HTTP Ingress for Redirection`**: Defining an additional Ingress resource to redirect HTTP traffic to HTTPS.
+### Slow tier (SD) – optional expansion tier
 
-```yaml
-# Solving the API issue with custom headers for WebSocket support
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: svc-longhorn-headers
-  namespace: longhorn-system
-spec:
-  headers:
-    customRequestHeaders:
-      X-Forwarded-Proto: "https"
+- Nodes: any workers where you want to expose SD capacity to Longhorn.  
+- Path (if enabled):  
+  - `/var/lib/longhorn/slow`
+- Longhorn disk configuration:
+  - Disks pointing to `/var/lib/longhorn/slow` with disk tag `slow`.  
+- StorageClass:
+  - `longhorn-slow` – uses disks tagged `slow` only.  
+  - Intended for **large, low‑I/O, non‑critical data** when you explicitly want to consume SD capacity.
 
-# HTTPS Ingress Resource
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: longhorn-ingress
-  namespace: longhorn-system
-  annotations:
-    # Define HTTPS as the entry point
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    # Enable TLS
-    traefik.ingress.kubernetes.io/router.tls: "true"
-    # Reference Middleware for Basic Auth and custom headers
-    traefik.ingress.kubernetes.io/router.middlewares:
-      traefik-basic-auth@kubernetescrd, longhorn-system-svc-longhorn-headers@kubernetescrd
-    # Enable automatic SSL certificate creation and storage in a Secret via cert-manager
-    cert-manager.io/cluster-issuer: picluster-ca-issuer
-    cert-manager.io/common-name: longhorn.picluster.quantfinancehub.com
-spec:
-  tls:
-    - hosts:
-        - longhorn.picluster.quantfinancehub.com
-      secretName: storage-tls
-  rules:
-    - host: longhorn.picluster.quantfinancehub.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: longhorn-frontend
-                port:
-                  number: 80
+> [!NOTE]  
+> The slow tier is **not required** for a functional PiKube cluster and is not configured by default. Enable it only when you need additional capacity and are comfortable using SD cards for non‑critical workloads.
 
-# HTTP Ingress for HTTP -> HTTPS Redirection
----
-kind: Ingress
-apiVersion: networking.k8s.io/v1
-metadata:
-  name: longhorn-redirect
-  namespace: longhorn-system
-  annotations:
-    # Use Middleware for redirection
-    traefik.ingress.kubernetes.io/router.middlewares: traefik-redirect@kubernetescrd
-    # Define HTTP as the entrypoint
-    traefik.ingress.kubernetes.io/router.entrypoints: web
-spec:
-  rules:
-    - host: longhorn.picluster.quantfinancehub.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: longhorn-frontend
-                port:
-                  number: 80
-```
+In addition to Longhorn disk tags, PiKube uses Kubernetes node labels to drive scheduling:
 
-- Deploy the Ingress configuration
+- `pikube.io/has-nvme=true` on the three NVMe workers.  
+- `pikube.io/device-type=orange-pi-5-ultra` on the same nodes.
 
-```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f longhorn-ingress.yaml
-```
+Recommended pattern:
 
-💡 **Additional Considerations**
-
-- **`Custom Domains and DNS`**: Ensure **`longhorn.picluster.quantfinancehub.com`** is correctly mapped to your Traefik Load Balancer's external IP via DNS.
-
-- **`Certificate Management`**: The **`ca-issuer`** should be correctly configured in PiKube Kubernetes cluster to issue certificates for **`longhorn.picluster.quantfinancehub.com`**.
-
-- **`Authentication`**: If not already done, create and configure the **`traefik-basic-auth`** Middleware with the desired credentials.
-
-- **`Testing`**: After applying the configuration, test accessing **`longhorn.picluster.quantfinancehub.com`**. A redirection to HTTPS will be done, and prompted for basic authentication credentials.
+- For high‑I/O workloads (Elasticsearch, Prometheus, DBs, AI jobs):
+  - Use `schedulerName: volcano` and `nodeSelector` / affinity on `pikube.io/has-nvme="true"` or `pikube.io/device-type=orange-pi-5-ultra`.  
+  - Use the `longhorn` StorageClass (backed by `/var/lib/longhorn/fast`).
+- For cold / bulk data (later, if needed):
+  - Use the `longhorn-slow` StorageClass and schedule onto SD‑backed nodes only when acceptable.
 
 ## Testing Longhorn Storage
 
@@ -253,7 +273,7 @@ To verify that **`Longhorn storage`** is functioning correctly, create a **`Pers
 - Create a dedicated namespace for the testing resources
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml create namespace testing-longhorn
+kubectl create namespace testing-longhorn
 ```
 
 - Define a PersistentVolumeClaim and a Pod in **`longhorn-test.yaml`** file:
@@ -300,63 +320,59 @@ This file describes a PersistentVolumeClaim for Longhorn storage and a test Pod 
 - Deploy the PersistentVolumeClaim and Pod
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f longhorn-test.yaml
+kubectl apply -f longhorn-test.yaml
 ```
 
 - Verify that the Pod has been successfully started:
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get pods -o wide -n testing-longhorn
+kubectl get pods -o wide -n testing-longhorn
 ```
 
 - Ensure that the PersistentVolume (PV) and PersistentVolumeClaim (PVC) have been successfully created
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get pv
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get pvc -n testing-longhorn
+kubectl get pv
+kubectl get pvc -n testing-longhorn
 ```
 
 - Access the Pod's shell and write a test file to the persistent volume
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n testing-longhorn exec -it longhorn-test -- sh -c "echo 'Hello Longhorn' > /data/test.txt"
+kubectl -n testing-longhorn exec -it longhorn-test -- sh -c "echo 'Hello Longhorn' > /data/test.txt"
 ```
 
 - Confirm that the file was written successfully
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n testing-longhorn exec -it longhorn-test -- cat /data/test.txt
+kubectl -n testing-longhorn exec -it longhorn-test -- cat /data/test.txt
 ```
 
 - Delete the Pod to simulate a failure
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n testing-longhorn delete pod longhorn-test
+kubectl -n testing-longhorn delete pod longhorn-test
 ```
 
 Re-deploy the Pod (it will re-attach to the existing PVC)
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f longhorn-test.yaml
+kubectl apply -f longhorn-test.yaml
 ```
 
 - Once the Pod is back up, check the file again
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n testing-longhorn exec -it longhorn-test -- cat /data/test.txt
+kubectl -n testing-longhorn exec -it longhorn-test -- cat /data/test.txt
 ```
 
-The output should still be Hello Longhorn, confirming that the data persisted across Pod restarts.
+The output should still be `Hello Longhorn`, confirming that the data persisted across Pod restarts.
 
-💡 **Additional Considerations**
-
-- **Monitoring and Logs**: Monitor the Pod and Longhorn system logs for any errors or issues.
-
-- **Volume Size**: Adjust the requested storage size in the PVC according to your needs and available resources.
-
-- **Cleanup**: Remember to delete the testing resources after you're done to free up space and resources.
-
-- Check in the longhorn-UI the created volumes and the replicas
+> [!NOTE]
+> - **Monitoring and Logs:** Monitor the Pod and Longhorn system logs for any errors or issues.  
+> - **Volume Size:** Adjust the requested storage size in the PVC according to your needs and available resources.  
+> - **Cleanup:** Remember to delete the testing resources after you're done to free up space and resources.  
+> - You can also verify the created volume and replicas from the Longhorn UI.
 
 <p align="center">
     <img alt="longhorn"
@@ -389,45 +405,14 @@ To utilize Longhorn as the default storage class for new Helm installations, the
 - After installing Longhorn, verify the default storage classes
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get storageclass
+kubectl get storageclass
 ```
 
-something like might be visible
+On PiKube (with `local-storage` disabled in K3s), you should see `longhorn` as the only default StorageClass.
 
-```lua
-NAME                 PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-local-path (default) rancher.io/local-path   Delete          WaitForFirstConsumer   false                  10m
-longhorn (default)   driver.longhorn.io      Delete          Immediate              true                   3m27s
-```
+Full procedure for changing defaults in a generic cluster is explained in the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
 
-Notice that both Local-Path and Longhorn are marked as default storage classes.
-
-**Changing the Default Storage Class**:
-
-To remove the Local Path as the default and set Longhorn as the sole default storage class, execute the following command:
-
-```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
-```
-
-This command updates the Local Path Provisioner, ensuring that Longhorn is recognized as the default storage class for any subsequent deployments.
-
-**Verification**:
-
-- Confirm the change by rechecking the storage classes:
-
-```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get storageclass
-```
-
-Now only Longhorn is marked as the default.
-
-Full procedure is explained in [**`Kubernetes documentation`**](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
-
-💡 **Additional Considerations**
-
-- **`Helm Installations`**: After setting Longhorn as the default storage class, any new Helm installations will automatically use it for dynamic volume provisioning.
-
-- **`Existing PVCs`**: This change won't affect existing PVCs. If needed, to migrate existing PVCs to Longhorn, a manual transfer of the data is required or recreate the PVCs.
-
-- **``Cluster Configuration``**: Always ensure the cluster configuration and node resources align with Longhorn's requirements for optimal performance and stability.
+> [!NOTE]
+> - **Helm installations:** With Longhorn as the default StorageClass, any new Helm installations that do not specify a `storageClassName` will automatically use Longhorn for dynamic provisioning.  
+> - **Existing PVCs:** Changing the default StorageClass does not migrate existing PVCs. Data migration requires manual steps or recreation of PVCs.  
+> - **Cluster configuration:** Always ensure node resources (CPU, RAM, disks, NVMe) align with Longhorn’s best practices for optimal performance and stability.

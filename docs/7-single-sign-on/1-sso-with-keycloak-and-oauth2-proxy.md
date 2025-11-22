@@ -85,132 +85,200 @@ TODO pikube-sso-architecture.drawio
 
 ## Setting Up Keycloak on Kubernetes
 
-This section guides through the process of deploying Keycloak on Kubernetes using Bitnami's Helm chart. The setup includes a PostgreSQL database as the backend for Keycloak.
+This section describes how to deploy Keycloak on Kubernetes using the **official Keycloak Operator** and an **external PostgreSQL database**. This avoids any dependency on Bitnami charts and uses upstream Keycloak images.
 
-- Create a dedicated namespace for **`keycloak`**
+### 1. Create the namespace
 
 ```bash
 kubectl create namespace keycloak
 ```
 
-- Create the Keycloak secret
+### 2. Provision PostgreSQL (recommended: CloudNativePG)
 
-```bash
-# Create new secret
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: keycloak-secret
-  namespace: keycloak
-type: Opaque
-data:
-  admin-password: $(echo -n 'admin123' | base64)
-  postgresql-password: $(echo -n 'keycloak123' | base64)
-  postgresql-admin-password: $(echo -n 'postgres123' | base64)
-EOF
-```
+The Keycloak Operator does **not** manage a database. You must provision PostgreSQL separately and expose it inside the cluster.
 
-- Add the Bitnami Helm repository to fetch the Keycloak chart and Helm repository
+On PiKube the recommended approach is to use **CloudNativePG** to run a small HA PostgreSQL cluster on Longhorn-backed storage (NVMe workers).
 
-```bash
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-```
+> [!NOTE]
+> The detailed CloudNativePG installation steps and operator configuration are described in the general Databases documentation at
+> `docs/12-microservices/1-databases.md`. For Keycloak you typically create a dedicated `keycloak-db` cluster with:
+> - 2–3 instances (depending on how critical SSO is for you)
+> - StorageClass `longhorn`
+> - Database name `keycloak`, user `keycloak`
+>
+> While CloudNativePG is the chosen production pattern for PiKube, simpler options are possible in development or lab environments:
+> - A single PostgreSQL instance (on a VM, bare metal host, or a basic `Deployment` in Kubernetes).
+> - An “integrated” PostgreSQL managed together with Keycloak by a Helm chart (Keycloak + bundled Postgres in one release).
+>
+> These simplified approaches reduce operational complexity but also remove high-availability guarantees and can make upgrades and backups harder to manage. For anything beyond short‑lived testing, prefer the CloudNativePG-based design documented here.
 
-- Generate a configuration file, **`keycloak-values.yaml`**, that specifies the deployment preferences, including storage class, running mode, admin user details, PostgreSQL configuration, and ingress settings:
+Once CloudNativePG is installed and the `keycloak-db` cluster exists, it will expose a read/write service such as `keycloak-db-rw.keycloak.svc.cluster.local:5432` that Keycloak can connect to.
+
+### 3. Manage credentials via External Secrets
+
+In PiKube, credentials should live in **Vault** and be synced into Kubernetes using **External Secrets Operator (ESO)** rather than checked into Git.
+
+For Keycloak we need at least:
+
+- Admin user password (for the initial bootstrap admin).  
+- Database username and password for the `keycloak` database.
+
+Example ESO resources (simplified):
 
 ```yaml
-global:
-  storageClass: longhorn
-auth:
-  adminUser: admin
-  existingSecret: keycloak-secret
-  passwordSecretKey: admin-password
-postgresql:
-  enabled: true
-  auth:
-    username: keycloak
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: keycloak-admin-credentials
+  namespace: keycloak
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: keycloak-admin-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: username
+      remoteRef:
+        key: secret/keycloak/admin       # Vault path
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: secret/keycloak/admin
+        property: admin-password
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: keycloak-db-credentials
+  namespace: keycloak
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: keycloak-db-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: username
+      remoteRef:
+        key: secret/postgres/keycloak   # Vault path
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: secret/postgres/keycloak
+        property: password
+```
+
+Apply them:
+
+```bash
+kubectl apply -f keycloak-admin-externalsecret.yaml
+kubectl apply -f keycloak-db-externalsecret.yaml
+```
+
+> [!NOTE]
+> For quick local testing, you can skip External Secrets and create `keycloak-admin-secret` and `keycloak-db-secret` manually with `kubectl create secret ...`. In the current PiKube cluster, both secrets are now managed by External Secrets pulling from Vault (`secret/keycloak/admin` and `secret/postgres/keycloak`). A legacy static secret named `keycloak-secret` still exists from the old Bitnami-based setup but is no longer used by the operator-based deployment. For production, prefer ESO-managed secrets rather than static ones.
+
+### 4. Install the Keycloak Operator
+
+Install the CRDs and Operator from the official `keycloak/keycloak-k8s-resources` repository. Replace `${KEYCLOAK_VERSION}` with the **latest stable** Keycloak version you want to run (for example `26.3.0`):
+
+```bash
+KEYCLOAK_VERSION=26.3.0   # check https://github.com/keycloak/keycloak-k8s-resources/tags
+kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
+kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
+kubectl apply -f https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/kubernetes.yml
+```
+
+Verify the operator pod in the `keycloak` namespace is `Running` before continuing.
+
+### 5. Deploy Keycloak with external Postgres and realm import
+
+Create a `Keycloak` custom resource that:
+
+- Points to the external PostgreSQL (`keycloak-db-rw` service).  
+- Uses secrets projected by ESO for DB credentials and bootstrap admin.
+
+Example (aligned with the current cluster):
+
+```yaml
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: picluster-keycloak
+  namespace: keycloak
+spec:
+  instances: 1
+  hostname:
+    hostname: sso.picluster.quantfinancehub.com
+  http:
+    # TLS is terminated at NGINX Ingress; Keycloak serves plain HTTP internally.
+    httpEnabled: true
+    httpPort: 8080
+  db:
+    vendor: postgres
+    host: keycloak-db-rw.keycloak.svc.cluster.local
+    port: 5432
     database: keycloak
-    existingSecret: keycloak-secret
-    secretKeys:
-      userPasswordKey: postgresql-password
-      adminPasswordKey: postgresql-admin-password
-# Production mode configuration
-production: true
-proxy: edge
-# Resource limits suitable for ARM
-resources:
-  limits:
-    memory: "1Gi"
-    cpu: "1000m"
-  requests:
-    memory: "512Mi"
-    cpu: "250m"
-# Startup probe configuration
-startupProbe:
-  enabled: true
-  initialDelaySeconds: 60
-  periodSeconds: 10
-  timeoutSeconds: 1
-  failureThreshold: 60
-  successThreshold: 1
-# Readiness probe configuration
-readinessProbe:
-  enabled: true
-  initialDelaySeconds: 60
-  periodSeconds: 10
-  timeoutSeconds: 1
-  failureThreshold: 3
-  successThreshold: 1
-# Liveness probe configuration
-livenessProbe:
-  enabled: true
-  initialDelaySeconds: 60
-  periodSeconds: 10
-  timeoutSeconds: 1
-  failureThreshold: 3
-  successThreshold: 1
-ingress:
-  enabled: true
-  ingressClassName: "nginx"
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password
+  bootstrapAdmin:
+    user:
+      # Secret with `username` and `password` keys, managed by External Secrets.
+      secret: keycloak-admin-secret
+```
+
+Apply these manifests and wait for the `Keycloak` CR to become `Ready`:
+
+```bash
+kubectl apply -f keycloak.yaml
+kubectl wait --for=condition=Ready keycloaks.k8s.keycloak.org/picluster-keycloak -n keycloak --timeout=600s
+```
+
+> [!NOTE]
+> Once the `picluster` realm is configured (clients, roles, users), export it to a JSON file from the Keycloak admin console or via the Admin REST API. You can then reuse that JSON to create a `KeycloakRealmImport` object (by embedding it under `spec.realm`) so that future redeployments can restore the realm configuration without manual UI steps.
+
+Once the CR is ready, the operator will also create an Ingress named `picluster-keycloak-ingress` for `sso.picluster.quantfinancehub.com`. Patch it (or create an equivalent Ingress) to integrate cert-manager and ExternalDNS:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: picluster-keycloak-ingress
+  namespace: keycloak
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-issuer
-    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
-    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
-  hostname: sso.picluster.quantfinancehub.com
-  tls: true
+    cert-manager.io/common-name: sso.picluster.quantfinancehub.com
+    external-dns.alpha.kubernetes.io/hostname: sso.picluster.quantfinancehub.com
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - sso.picluster.quantfinancehub.com
+      secretName: sso.picluster.quantfinancehub.com-tls
+  rules:
+    - host: sso.picluster.quantfinancehub.com
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: picluster-keycloak-service
+                port:
+                  name: http
 ```
 
-This configuration enables:
-
-- Deployment in a secure, production-ready setup.
-
-- Use of PostgreSQL as the database.
-
-- Configuration of an ingress resource for external access.
-
->📢 Note
->
-> *This setup automatically generates random passwords for Keycloak's admin account and PostgreSQL. To avoid issues during upgrades, provide the existing passwords when running helm upgrade.*
-
-- Deploy Keycloak to PiKube cluster within the specified namespace
-
-```bash
-helm install keycloak bitnami/keycloak -f keycloak-values.yml --namespace keycloak
-```
-
-- Verify the deployment by checking the status of Keycloak pods
-
-```bash
-kubectl get pods -n keycloak
-```
-
-- Access the Keycloak admin console at **`https://sso.picluster.quantfinancehub.com`** and log in with the 'admin' user credentials obtained in the previous step
-
-```bash
-kubectl get secret keycloak-secret -n keycloak -o jsonpath='{.data.admin-password}' | base64 -d && echo
-```
+You can then access the admin console at **`https://sso.picluster.quantfinancehub.com`** using the admin username and password managed in Vault and projected via ESO.
 
 If connecting from outside the cluster (e.g. Windows laptop but same network as the `gateway`), DNS will resolve automatically `sso.picluster.quantfinancehub.com` to `10.0.0.100`.
 
@@ -248,7 +316,7 @@ data:
 EOF
 ```
 
-- Modify keycloak-values.yaml to use external secret:
+- Example Helm values snippet using an external secret:
 
 ```yaml
 auth:
@@ -269,102 +337,10 @@ postgresql:
 
 ### Alternative installation using external database
 
-Instead of using Bitnami's PostgreSQL subchart, an external PostgreSQL database can be used. For example, using CloudNative-PG, a Keycloak database cluster can be created. See the details on how to install CloudNative-PG in the [**`Databases`**](../12-microservices/2-service-mesh-linkerd.md).
+Instead of using Bitnami's PostgreSQL subchart, an external PostgreSQL database can be used. For example, using CloudNative-PG, a Keycloak database cluster can be created. See the details on how to install CloudNative-PG in the [**`Databases`**](../12-microservices/1-databases.md).
 
-- Create secret for keycloak admin user
-
-```bash
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Secret
-metadata:
-    name: keycloak-secret
-    namespace: keycloak
-type: kubernetes.io/basic-auth
-data:
-    admin-password: $(echo -n 'admin123' | base64)
-EOF
-```
-
-- Create secret for external database
-
-```bash
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: keycloak-db-secret
-  namespace: keycloak
-  labels:
-    cnpg.io/reload: "true"
-type: kubernetes.io/basic-auth
-data:
-  username: $(echo -n 'keycloak' | base64)
-  password: $(echo -n 'supersecret' | base64)
-EOF
-```
-
-- Create CloudNative PG database for keycloak
-
-  ```yaml
-  apiVersion: postgresql.cnpg.io/v1
-  kind: Cluster
-  metadata:
-    name: keycloak-db
-    namespace: keycloak
-  spec:
-    instances: 3
-    imageName: ghcr.io/cloudnative-pg/postgresql:16.3-4
-    storage:
-      size: 10Gi
-      storageClass: longhorn
-    monitoring:
-      enablePodMonitor: true
-    bootstrap:
-      initdb:
-        database: keycloak
-        owner: keycloak
-        secret:
-          name: keycloak-db-secret
-    # Backup to external Minio (Optional)
-    backup:
-      barmanObjectStore:
-        data:
-          compression: bzip2
-        wal:
-          compression: bzip2
-          maxParallel: 8
-        destinationPath: s3://k3s-barman/keycloak-db
-        endpointURL: https://s3.quantfinancehub.com:9091
-        s3Credentials:
-          accessKeyId:
-            name: keycloak-minio-secret
-            key: AWS_ACCESS_KEY_ID
-          secretAccessKey:
-            name: keycloak-minio-secret
-            key: AWS_SECRET_ACCESS_KEY
-      retentionPolicy: "30d"
-  ```
-
-- Add external database configuration to helm `keycloak-values.yaml`
-
-  ```yaml
-  # Admin user
-  auth:
-      existingSecret: keycloak-secret
-      adminUser: admin
-  # External DB: https://github.com/bitnami/charts/tree/main/bitnami/keycloak#use-an-external-database
-  postgresql:
-    enabled: false
-
-  externalDatabase:
-    host: "keycloak-db-rw"
-    port: 5432
-    database: keycloak
-    existingSecret: "keycloak-db-secret"
-    existingSecretUserKey: "username"
-    existingSecretPasswordKey: "password"
-  ```
+> [!NOTE]
+> The examples in this section are kept for historical context. For new PiKube deployments, prefer the CloudNativePG operator pattern and avoid Bitnami-based Keycloak charts, in line with the Bitnami deprecation decision.
 
 ## Configuring Keycloak
 
@@ -535,27 +511,6 @@ EOF
 kubectl apply -f keycloak-realm-configmap.yaml
 ```
 
-- Update keycloak-values.yaml to import realm
-
-```yaml
-extraStartupArgs: "--import-realm"
-extraVolumes:
-  - name: realm-config
-    configMap:
-      name: keycloak-realm-configmap
-extraVolumeMounts:
-  - mountPath: /opt/bitnami/keycloak/data/import
-    name: realm-config
-```
-
-- Apply changes
-
-```bash
-helm upgrade --install keycloak bitnami/keycloak \
-  --namespace keycloak \
-  -f keycloak-values.yaml
-```
-
 ## OAuth2-Proxy Installation
 
 ### Secure Deployment with External Secrets in a GitOps Workflow
@@ -612,18 +567,14 @@ kubectl create namespace oauth2-proxy
 - Create `oauth2-proxy-values.yaml`:
 
 ```yaml
-helm upgrade --install oauth2-proxy oauth2-proxy/oauth2-proxy \
-  --namespace oauth2-proxy \
-  --set global.redis.password="$(kubectl get secret --namespace "oauth2-proxy" oauth2-proxy-secret -o jsonpath="{.data.redis-password}" | base64 --decode)" \
-  -f - <<EOF
 config:
-  clientID: "oauth2-proxy"
+  existingSecret: oauth2-proxy-secret
   cookieName: "oauth2-proxy"
   configFile: |-
     provider="keycloak-oidc"
     provider_display_name="Keycloak"
     redirect_url="https://oauth2-proxy.picluster.quantfinancehub.com/oauth2/callback"
-    oidc_issuer_url="https://sso.picluster.quantfinancehub.com/realms/picluster"
+    oidc_issuer_url="http://sso.picluster.quantfinancehub.com/realms/picluster"
     code_challenge_method="S256"
     ssl_insecure_skip_verify=true
     http_address="0.0.0.0:4180"
@@ -635,13 +586,6 @@ config:
     whitelist_domains=[".picluster.quantfinancehub.com"]
     insecure_oidc_allow_unverified_email="true"
 
-auth:
-  existingSecret: oauth2-proxy-secret
-  existingSecretKeys:
-    clientID: client-id
-    clientSecret: client-secret
-    cookieSecret: cookie-secret
-
 sessionStorage:
   type: redis
   redis:
@@ -650,11 +594,7 @@ sessionStorage:
 
 redis:
   enabled: true
-  architecture: standalone
-
-global:
-  redis:
-    password: "$(kubectl get secret --namespace "oauth2-proxy" oauth2-proxy-secret -o jsonpath="{.data.redis-password}" | base64 --decode)"
+  redisPassword: "redis-secret-change-me"
 
 ingress:
   enabled: true
@@ -665,13 +605,13 @@ ingress:
     cert-manager.io/cluster-issuer: letsencrypt-issuer
     cert-manager.io/common-name: oauth2-proxy.picluster.quantfinancehub.com
     nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+    external-dns.alpha.kubernetes.io/hostname: oauth2-proxy.picluster.quantfinancehub.com
   hosts:
     - oauth2-proxy.picluster.quantfinancehub.com
   tls:
     - hosts:
         - oauth2-proxy.picluster.quantfinancehub.com
       secretName: oauth2-proxy-tls
-EOF
 ```
 
 - Install OAuth2-Proxy:
@@ -688,7 +628,7 @@ kubectl --namespace=oauth2-proxy get pods -l "app=oauth2-proxy"
   
 ## Integrating with Ingress
 
-Add the following annotations to your Ingress resources:
+Add the following annotations to your Ingress resources (for example, the Longhorn UI Ingress in the `longhorn-system` namespace):
 
 ```yaml
 annotations:
