@@ -81,7 +81,7 @@ The Tempo Helm chart can install Minio as a subchart, but that’s disabled here
 - An **in-cluster HA MinIO Tenant** (`minio-ha`) on Longhorn, exposed as `https://s3.picluster.quantfinancehub.com`.  
 - An **external MinIO** on `blueberry-master` used for backup/DR.
 
-The Tempo S3 bucket, policy, and user for MinIO are set up as part of the HA MinIO installation. See [**`Minio S3 Object Storage Service (High Availability)`**](../8-storage/2-s3-object-storage-service-minio-ha.md) for details.
+The Tempo S3 bucket, policy, and user for MinIO are set up as part of the HA MinIO installation. See [**`Minio S3 Object Storage Service`**](../8-storage/2-s3-object-storage-service-minio.md) for details.
 
 :::
 
