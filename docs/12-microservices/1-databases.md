@@ -161,11 +161,11 @@ kubectl get secret mydatabase-db-app -o json -n databases | jq '.data | map_valu
 {
   "dbname": "mydatabase",
   "host": "mydatabase-db-rw",
-  "jdbc-uri": "jdbc:postgresql://mydatabase-db-rw.databases:5432/mydatabase?password=Vq8d5Ojh9v4rLNCCRgeluEYOD4c8se4ioyaJOHiymT9zFFSNAWpy34TdTkVeoMaq&user=keycloak",
+  "jdbc-uri": "jdbc:postgresql://mydatabase-db-rw.databases:5432/mydatabase?password=Vq8d5Ojh9v4rLNCCRgeluEYOD4c8se4ioyaJOHiymT9zFFSNAWpy34TdTkVeoMaq&user=myuser",
   "password": "Vq8d5Ojh9v4rLNCCRgeluEYOD4c8se4ioyaJOHiymT9zFFSNAWpy34TdTkVeoMaq",
   "pgpass": "mydatabase-db-rw:5432:mydatabase:myuser:Vq8d5Ojh9v4rLNCCRgeluEYOD4c8se4ioyaJOHiymT9zFFSNAWpy34TdTkVeoMaq\n",
   "port": "5432",
-  "uri": "postgresql://myuser:Vq8d5Ojh9v4rLNCCRgeluEYOD4c8se4ioyaJOHiymT9zFFSNAWpy34TdTkVeoMaq@mydatabase-db-rw.databases:5432/keycloak",
+  "uri": "postgresql://myuser:Vq8d5Ojh9v4rLNCCRgeluEYOD4c8se4ioyaJOHiymT9zFFSNAWpy34TdTkVeoMaq@mydatabase-db-rw.databases:5432/mydatabase",
   "user": "myuser",
   "username": "myuser"
 }

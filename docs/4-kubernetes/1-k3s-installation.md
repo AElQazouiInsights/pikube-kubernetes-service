@@ -573,6 +573,15 @@ spec:
     force: true
     deleteEmptyDirData: true
     ignoreDaemonSets: true
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+    - key: CriticalAddonsOnly
+      operator: Exists
   upgrade:
     image: rancher/k3s-upgrade
   version: v1.34.1+k3s1  # Set explicitly (see Dynamic Version Options below)
@@ -659,22 +668,24 @@ watch kubectl get nodes -o wide
 
 ### Dynamic Version Options
 
-Pick one of these to avoid hard‑coding the version in Plans:
+This cluster uses the **v1.34 channel** for automatic patch upgrades within the 1.34.x series.
 
-- Option A – Track a channel (automatic within a track)
-
-  Use a K3s update channel instead of a fixed `version`. Remove `spec.version` and add `spec.channel`:
+> [!NOTE]
+> **Alternative Version Strategies**
+>
+> - **Stable channel**: Use `channel: https://update.k3s.io/v1-release/channels/stable` to track the latest stable release across all versions. Note: This may be behind your current version if you installed a newer release.
+> - **Manual version**: Use explicit `version: v1.34.1+k3s1` instead of channel for full control. Requires manual patching to trigger upgrades.
 
   ```yaml
   spec:
-    channel: v1.34   # latest 1.34.x only; use 'stable' to track latest across minors
+    channel: https://update.k3s.io/v1-release/channels/v1.34  # automatic patch releases
     upgrade:
       image: rancher/k3s-upgrade
   ```
 
-  Ready to copy/paste (preferred):
+  Ready to copy/paste (using v1.34 channel):
 
-  - Server plan (tracks latest 1.34.x)
+  - Server plan (tracks v1.34.x patch releases)
     ```yaml
     apiVersion: upgrade.cattle.io/v1
     kind: Plan
@@ -693,13 +704,22 @@ Pick one of these to avoid hard‑coding the version in Plans:
           - key: node-role.kubernetes.io/control-plane
             operator: In
             values: ["true"]
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: CriticalAddonsOnly
+          operator: Exists
       serviceAccountName: system-upgrade
       upgrade:
         image: rancher/k3s-upgrade
       channel: https://update.k3s.io/v1-release/channels/v1.34
     ```
 
-  - Agent plan (waits for server plan, tracks latest 1.34.x)
+  - Agent plan (waits for server plan, tracks v1.34.x patch releases)
     ```yaml
     apiVersion: upgrade.cattle.io/v1
     kind: Plan
@@ -724,11 +744,6 @@ Pick one of these to avoid hard‑coding the version in Plans:
       upgrade:
         image: rancher/k3s-upgrade
       channel: https://update.k3s.io/v1-release/channels/v1.34
-    ```
-
-  - To track the latest stable across minors instead, replace the `channel:` line with:
-    ```yaml
-    channel: https://update.k3s.io/v1-release/channels/stable
     ```
 
 - Option B – Template at apply time (pin but automate)

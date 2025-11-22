@@ -2,7 +2,7 @@
 title: Monitoring with Prometheus
 permalink: /docs/9-monitoring/7-monitoring-prometheus
 description: How to deploy kuberentes cluster monitoring solution based on Prometheus. Installation based on Prometheus Operator using kube-prometheus-stack project.
-last_modified_at: "09-12-2024"
+last_modified_at: "2025-11-18"
 ---
 
 # {{ $frontmatter.title }}
@@ -73,7 +73,7 @@ helm repo update
 - Establish a dedicated namespace for all your monitoring components
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml create namespace monitoring
+kubectl create namespace monitoring
 ```
 
 - Create **`prometeus-values.yaml`** file with the desired configuration for Kube-Prometheus stack. Below is a detailed breakdown of the key configurations:
@@ -117,8 +117,8 @@ prometheusOperator:
 # Alertmanager configuration
 alertmanager:
   alertmanagerSpec:
-    externalUrl: http://monitor.picluster.quantfinancehub.com/alertmanager/
-    routePrefix: /
+    externalUrl: https://monitoring.picluster.quantfinancehub.com/alertmanager/
+    routePrefix: /alertmanager
     storage:
       volumeClaimTemplate:
         spec:
@@ -137,8 +137,8 @@ alertmanager:
 # Prometheus configuration
 prometheus:
   prometheusSpec:
-    externalUrl: http://monitoring.picluster.quantfinancehub.com/prometheus/
-    routePrefix: /
+    externalUrl: https://monitoring.picluster.quantfinancehub.com/prometheus/
+    routePrefix: /prometheus
     resources:
       requests:
         memory: 1Gi
@@ -169,7 +169,7 @@ grafana:
   grafana.ini:
     server:
       domain: monitoring.picluster.quantfinancehub.com
-      root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana/"
+      root_url: https://monitoring.picluster.quantfinancehub.com/grafana/
       serve_from_sub_path: true
   adminPassword: "admin_password"
   plugins:
@@ -190,6 +190,38 @@ grafana:
     dashboards:
       searchNamespace: ALL
 
+### Aligning Grafana datasources with Prometheus routePrefix
+
+When you expose Prometheus and Alertmanager under `/prometheus` and `/alertmanager` (as above), their HTTP APIs are also served under those prefixes. Grafana datasource URLs must include the same prefixes so that queries are routed to the correct endpoints.
+
+In PiKube, the `kube-prometheus-stack-grafana-datasource` ConfigMap in the `monitoring` namespace should contain a `datasource.yaml` similar to:
+
+```yaml
+apiVersion: 1
+datasources:
+  - name: "Prometheus"
+    type: prometheus
+    uid: prometheus
+    url: http://kube-prometheus-stack-prometheus.monitoring:9090/prometheus/
+    access: proxy
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 30s
+  - name: "Alertmanager"
+    type: alertmanager
+    uid: alertmanager
+    url: http://kube-prometheus-stack-alertmanager.monitoring:9093/alertmanager/
+    access: proxy
+    jsonData:
+      handleGrafanaManagedAlerts: false
+      implementation: prometheus
+```
+
+> [!WARNING]
+> Whenever you change `prometheus.prometheusSpec.routePrefix` or `alertmanager.alertmanagerSpec.routePrefix`, update the corresponding Grafana datasource URLs to include the same prefixes. Keeping the routePrefix, Ingress paths, and Grafana datasource URLs aligned ensures that Grafana can successfully query Prometheus and Alertmanager.
+
+```yaml
 # Disabling default Kubernetes service monitoring
 kubelet: { enabled: false }
 kubeApiServer: { enabled: false }
@@ -221,7 +253,7 @@ defaultRules:
 - Deploy the **`Kube-Prometheus`** stack in the **`monitoring`** namespace using the Helm chart and the custom **`prometeus-values.yaml`**
 
 ```bash
-helm --kubeconfig=/home/pi/.kube/config.yaml install -f prometeus-values.yaml kube-prometheus-stack prometheus-community/kube-prometheus-stack --namespace monitoring
+helm install -f prometeus-values.yaml kube-prometheus-stack prometheus-community/kube-prometheus-stack --namespace monitoring
 ```
 
 ## Configuring Ingress Resources for Accessing Monitoring Services
@@ -244,7 +276,7 @@ The DNS domain `monitoring.picluster.quantfinancehub.com` must be mapped in the 
 
 As the backend services for Prometheus, Grafana, and AlertManager don't provide secure communications (HTTP traffic) by default, the Ingress resource will be configured to enforce HTTPS (NGINX TLS endpoint) and redirect all HTTP traffic to HTTPS. Additionally, since Prometheus and AlertManager frontends lack native authentication mechanisms, NGINX HTTP basic authentication will be employed for security.
 
-Ingress NGINX rewrite rules are defined within the Ingress resources.
+Access paths are implemented using simple path prefixes (`/grafana`, `/prometheus`, `/alertmanager`) without regex rewrites; each application is served directly under its own subpath.
 
 - Create Ingress Resources Manifest `prometheus-monitoring-ingress.yaml`
 
@@ -257,8 +289,6 @@ metadata:
   namespace: monitoring
   annotations:
     nginx.ingress.kubernetes.io/service-upstream: "true"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
     cert-manager.io/cluster-issuer: letsencrypt-issuer
     cert-manager.io/common-name: monitoring.picluster.quantfinancehub.com
 spec:
@@ -271,7 +301,7 @@ spec:
     - host: monitoring.picluster.quantfinancehub.com
       http:
         paths:
-          - path: /grafana/(.*)
+          - path: /grafana
             pathType: Prefix
             backend:
               service:
@@ -287,10 +317,8 @@ metadata:
   namespace: monitoring
   annotations:
     nginx.ingress.kubernetes.io/service-upstream: "true"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/auth-type: basic
-    nginx.ingress.kubernetes.io/auth-secret: nginx/basic-auth-secret
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth-secret
     cert-manager.io/cluster-issuer: letsencrypt-issuer
     cert-manager.io/common-name: monitoring.picluster.quantfinancehub.com
 spec:
@@ -303,7 +331,7 @@ spec:
     - host: monitoring.picluster.quantfinancehub.com
       http:
         paths:
-          - path: /prometheus/(.*)
+          - path: /prometheus
             pathType: Prefix
             backend:
               service:
@@ -319,8 +347,6 @@ metadata:
   namespace: monitoring
   annotations:
     nginx.ingress.kubernetes.io/service-upstream: "true"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
     cert-manager.io/cluster-issuer: letsencrypt-issuer
     cert-manager.io/common-name: monitoring.picluster.quantfinancehub.com
 spec:
@@ -333,7 +359,7 @@ spec:
     - host: monitoring.picluster.quantfinancehub.com
       http:
         paths:
-          - path: /alertmanager/(.*)
+          - path: /alertmanager
             pathType: Prefix
             backend:
               service:
@@ -345,8 +371,34 @@ spec:
 - Deploy the Ingress configuration to your cluster
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f prometheus-monitoring-ingress.yaml
+kubectl apply -f prometheus-monitoring-ingress.yaml
 ```
+
+> [!NOTE] 🔐 Basic auth secret for Prometheus via Vault + ESO  
+> In PiKube, the HTTP basic-auth credentials for NGINX are stored centrally in Vault on the gateway at `secret/ingress/basic_auth` (field `htpasswd-pair`). To avoid hard-coding credentials in manifests, use External Secrets Operator to create `basic-auth-secret` in the `monitoring` namespace:  
+>
+> ```yaml
+> apiVersion: external-secrets.io/v1
+> kind: ExternalSecret
+> metadata:
+>   name: monitoring-basic-auth
+>   namespace: monitoring
+> spec:
+>   refreshInterval: 1h
+>   secretStoreRef:
+>     name: vault-backend
+>     kind: ClusterSecretStore
+>   target:
+>     name: basic-auth-secret   # Secret referenced by Ingress annotations
+>     creationPolicy: Owner
+>   data:
+>     - secretKey: auth         # Key expected by NGINX
+>       remoteRef:
+>         key: secret/ingress/basic_auth
+>         property: htpasswd-pair
+> ```
+>
+> This mirrors the pattern described in `docs/5-networking/4-ingress-controller-nginx.md` and used for Longhorn: NGINX Ingress annotations reference `basic-auth-secret` in the same namespace, while the actual credentials live in Vault and are synced by External Secrets Operator.
 
 ## Detailed Breakdown of what been deployed by kube-stack
 
@@ -365,8 +417,8 @@ The **`Prometheus custom resource`** (CR) is a crucial part of this setup. It co
 It can be retrieved from PiKube Kubernetes Cluster
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get prometheus -n monitoring
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get prometheus kube-prometheus-stack-prometheus -n monitoring -o yaml
+kubectl get prometheus -n monitoring
+kubectl get prometheus kube-prometheus-stack-prometheus -n monitoring -o yaml
 ```
 
 ```yaml
@@ -520,8 +572,8 @@ The AlertManager custom resource (CR) defines the desired state and configuratio
 It can be retrieved from PiKube Kubernetes cluster
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get alertmanager -n monitoring
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get alertmanager <name-of-alertmanager-cr> -n monitoring -o yaml
+kubectl get alertmanager -n monitoring
+kubectl get alertmanager <name-of-alertmanager-cr> -n monitoring -o yaml
 ```
 
 ```yaml
@@ -634,9 +686,16 @@ status:
 
 > [!NOTE]
 >
-> *In the chart's configuration, monitoring for the **`kube-controller-manager`**, **`kube-scheduler`**, **`kube-proxy`**, and **`kubelet`** components has been deactivated. However, the **`coreDNS`** component's monitoring remains active.*
+> In PiKube, kube-prometheus-stack is responsible for scraping its own components (Prometheus, Alertmanager, Grafana, node exporter, kube-state-metrics, etc.).
 >
-> *Refer to the below [**`K3S components monitoring`**](../4-kubernetes/1-k3s-installation.md) section to understand the rationale behind the disabling of Kubernetes components monitoring in the kube-prometheus-stack and for guidance on how to manually set up monitoring for K3s.*
+> For additional platform services (Ingress NGINX, Longhorn, MinIO, Elasticsearch, K3s components, Linkerd, etc.), the recommended pattern is:
+>
+> 1. Ensure the service exposes a metrics endpoint and has stable labels.
+> 2. Create or confirm a Service that targets the metrics port.
+> 3. Create a ServiceMonitor in the `monitoring` namespace with `metadata.labels.release: kube-prometheus-stack`, a `namespaceSelector` pointing at the service's namespace, and a `selector.matchLabels` that matches the service.
+> 4. Set the `endpoints[*].port` and `path` to the metrics port name and HTTP path (for example, `/metrics` or `/minio/v2/metrics/cluster`).
+>
+> The following sections (“Monitoring Ingress NGINX”, “Monitoring Longhorn”, “Monitoring Minio”, “Elasticsearch Monitoring”, etc.) provide concrete ServiceMonitor manifests for each major platform service deployed on PiKube.
 
 #### Detailed Breakdown of PrometheusRule Objects
 
@@ -653,8 +712,8 @@ Grafana is deployed as a subchart of the kube-prometheus-stack, and its configur
 It can be retrieved from PiKube Kubernetes Service
 
 ```bash
-helm --kubeconfig=/home/pi/.kube/config.yaml list -n monitoring
-helm --kubeconfig=/home/pi/.kube/config.yaml get values kube-prometheus-stack -n monitoring
+helm list -n monitoring
+helm get values kube-prometheus-stack -n monitoring
 ```
 
 ```yaml
@@ -1081,8 +1140,8 @@ Below is an example of a ConfigMap automatically generated by the **`kube-promet
 It can be retreived from PiKube Kunbernetes cluster
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get configmaps -n monitoring
-kubectl --kubeconfig=/home/pi/.kube/config.yaml get configmap <ConfigMap-Name> -n monitoring -o yaml # similar to kube-prometheus-stack-grafana-datasource 
+kubectl get configmaps -n monitoring
+kubectl get configmap <ConfigMap-Name> -n monitoring -o yaml # similar to kube-prometheus-stack-grafana-datasource 
 ```
 
 ```yaml
@@ -1718,11 +1777,11 @@ metadata:
 spec:
   jobLabel: app.kubernetes.io/name
   endpoints:
-  - port: metrics
-    path: /metrics
-    scheme: http
-    interval: 30s
-    honorLabels: true
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 30s
+      honorLabels: true
   selector:
     matchLabels:
       app.kubernetes.io/instance: ingress-nginx
@@ -1791,15 +1850,10 @@ To automatically discover the Longhorn metrics endpoint as a Prometheus target, 
 
 ```bash
 kubectl get svc -n longhorn-system
+kubectl get svc longhorn-backend -n longhorn-system --show-labels
 ```
 
-- Retrieve the labels associated with the NGINX Ingress controller service to ensure accurate configuration
-
-```bash
-kubectl get svc longhorn-backend -n nginx --show-labels
-```
-
-- Note the key `Labels` and create the `ServiceMonitor` manifest `prometheus-nginx-servicemonitor.yaml`
+- Note the key `Labels` and create the `ServiceMonitor` manifest `prometheus-longhorn-servicemonitor.yaml`
 
 ```yaml
 # prometheus-longhorn-servicemonitor.yaml
@@ -1812,15 +1866,15 @@ metadata:
   labels:
     release: kube-prometheus-stack
 spec:
-  jobLabel: app.kubernetes.io/name
+  jobLabel: app
   selector:
     matchLabels:
-      app.kubernetes.io/name: longhorn-manager
+      app: longhorn-manager
   namespaceSelector:
     matchNames:
       - longhorn-system
   endpoints:
-    - port: metrics
+    - port: manager
       path: /metrics
       scheme: http
       interval: 30s
@@ -2010,6 +2064,87 @@ data:
 ```bash
 kubectl apply -f grafana-longhorn-dashboard-configmap.yaml
 ```
+
+### Monitoring External-DNS
+
+External-DNS exposes Prometheus metrics on port `7979` at the `/metrics` path. In PiKube, the `external-dns` chart creates a `Service` named `external-dns` in the `external-dns` namespace with port name `http`.
+
+To have Prometheus scrape External-DNS, create a ServiceMonitor in the `monitoring` namespace.
+
+- Create `prometheus-external-dns-servicemonitor.yaml`:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: external-dns-monitoring
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: external-dns
+      app.kubernetes.io/name: external-dns
+  namespaceSelector:
+    matchNames:
+      - external-dns
+  endpoints:
+    - port: http
+      path: /metrics
+      scheme: http
+      interval: 30s
+      honorLabels: true
+```
+
+- Apply the manifest:
+
+```bash
+kubectl apply -f prometheus-external-dns-servicemonitor.yaml
+```
+
+Once applied, a new job (for example, `external-dns-monitoring`) will appear in Prometheus targets, and you can build Grafana dashboards using External-DNS metrics.
+
+### Monitoring Volcano Scheduler
+
+The Volcano scheduler exposes Prometheus metrics on port `8080` at `/metrics` via the `volcano-scheduler-service` in the `volcano-system` namespace.
+
+Create a ServiceMonitor to have Prometheus scrape these metrics.
+
+- Create `prometheus-volcano-servicemonitor.yaml`:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: volcano-scheduler-monitoring
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  jobLabel: app
+  selector:
+    matchLabels:
+      app: volcano-scheduler
+  namespaceSelector:
+    matchNames:
+      - volcano-system
+  endpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 30s
+      honorLabels: true
+```
+
+- Apply the manifest:
+
+```bash
+kubectl apply -f prometheus-volcano-servicemonitor.yaml
+```
+
+After this, Volcano scheduler metrics will be available in Prometheus and can be visualized via custom Grafana dashboards.
 
 ### Elasticsearch Monitoring
 

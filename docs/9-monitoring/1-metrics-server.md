@@ -1,8 +1,8 @@
 ---
 title: Metrics Server
 permalink: /docs/metrics-server/
-description: How to install the Kubernetes Metrics Server, a foundational component for CPU/Memory usage metrics and autoscaling.
-last_modified_at: "30-01-2025"
+description: Install and verify Metrics Server for CPU/Memory usage metrics and autoscaling in PiKube.
+last_modified_at: "2025-11-09"
 ---
 
 # {{ $frontmatter.title }}
@@ -53,7 +53,7 @@ class A,L,C k8s
 
 ## Metrics Server in K3s
 
-K3s installs Metrics Server by default as an add-on, so you typically have a working metrics pipeline out of the box. If needed, you can disable it (`--disable metrics-server` when installing K3s) and install your own Helm-managed instance for greater version or config control.
+K3s can include Metrics Server as an add‑on by default. In PiKube we deliberately disable it via K3s `disable: [metrics-server]` and install/operate Metrics Server explicitly via Helm when needed. If `kubectl top` fails on your cluster, follow the Helm installation below.
 
 ## Installing Metrics Server via Helm
 
@@ -70,20 +70,20 @@ helm repo update
 
 ```bash
 helm upgrade --install metrics-server metrics-server/metrics-server \
-  --namespace kube-system
+  --namespace kube-system --wait
 ```
 
 - Verify installation:
 
 ```bash
-kubectl get pods -n kube-system | grep metrics-server
+kubectl -n kube-system get pods | grep metrics-server
 ```
 
 - If everything is running smoothly, you can then confirm metrics availability:
 
 ```bash
 kubectl top nodes
-kubectl top pods
+kubectl top pods --all-namespaces
 ```
 
 These commands should display current CPU/memory usage, confirming that **Metrics Server** is correctly providing resource data to the cluster.

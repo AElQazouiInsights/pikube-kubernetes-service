@@ -1,8 +1,8 @@
 ---
-title: TLS Certificate Management with Cert-Manager in Kubernetes
+title: TLS Certificate Management with cert-manager
 permalink: /docs/6-certificate-management/1-tls-certificates-cert-manager
-description: How to deploy a centralized TLS certificates management solution based on Cert-Manager in PiKube Kubernetes cluster.
-last_modified_at: "14-11-2023"
+description: Configure cert-manager for PiKube with Let’s Encrypt (Cloudflare DNS‑01) via External Secrets Operator, plus self‑signed fallback.
+last_modified_at: "2025-11-09"
 ---
 
 # {{ $frontmatter.title }}
@@ -14,91 +14,144 @@ last_modified_at: "14-11-2023"
     height="%">
 </p>
 
-**`Cert-Manager`** is a powerful tool in Kubernetes for automating the management of **`TLS certificates`**. It facilitates the process of obtaining, renewing, and utilizing certificates by introducing certificates and certificate issuers as Kubernetes resource types. Here's an overview of how to use **`Cert-Manager`** effectively:
+cert-manager automates issuing, renewing, and using TLS certificates in Kubernetes. In PiKube, the production default is Let’s Encrypt via the Cloudflare DNS‑01 challenge, with the Cloudflare API token sourced from Vault and synced into Kubernetes by External Secrets Operator (ESO). A self‑signed/CA path is kept for fully private labs.
 
-**Features of Cert-Manager:**
+## PiKube certificate strategy
 
-- **`Automates Certificate Management`**
+- Default (production): ACME/Let’s Encrypt using Cloudflare DNS‑01 (token from Vault via ESO)
+- Alternative (private/offline): Self‑signed + internal CA issued by cert-manager
 
-  Handles tasks like issuing certificate requests, renewals, etc.
+### Install cert-manager (with CRDs)
 
-- **`Supports Various Issuers`**
-  
-  Can issue certificates from multiple sources, including self-signed certificates and external CAs like Let’s Encrypt.
+For PiKube we install cert-manager with Helm and pass a small values file so we can keep all settings (including DNS‑01 recursion) in one place.
 
-- **`Automatic Renewal`**
+Example `cert-manager-values.yaml`:
 
-  Ensures certificates are valid and up-to-date, renewing them before expiry.
+```yaml
+installCRDs: true
 
-- **`Updates Kubernetes Secrets`**
-
-  Maintains the Kubernetes Secrets that store key pairs used by Ingress resources for securing incoming traffic.
-
-## Configuring Cert-Manager for TLS Certificate Issuance in Kubernetes
-
-**`Cert-Manager`** in Kubernetes automates the process of managing TLS certificates, supporting various types of issuers to generate signed TLS certificates. Here's an overview of configuring and using different issuers in **`Cert-Manager`**:
-
-### Self-Signed Issuer
-
-- Used for creating self-signed certificates.
-- Ideal for bootstrapping a root certificate for a custom Public Key Infrastructure (PKI).
-
-### CA Issuer
-
-- Represents a Certificate Authority within the cluster.
-- Its certificate and private key are stored as a Kubernetes Secret.
-- Useful for internal PKI setups for mTLS and infrastructure component security.
-
-### ACME Issuer (e.g., Let's Encrypt)
-
-- For obtaining validated TLS certificates from an ACME CA such as Let's Encrypt.
-- Suitable for externally exposed services requiring trusted certificates.
-
-### Install Cert-Manager Custom Resource Definitions (CRDs)
-
-Ensure **`Cert-Manager`** and its CRDs are installed in the pi-cluster. CRDs define custom resources like Certificate for **`Cert-Manager`**.
-
-**`Cert-Manager`** can be installed with CRDs using Helm or kubectl. Here's how to do it with Helm:
+extraArgs:
+  - --dns01-recursive-nameservers=1.1.1.1:53,8.8.8.8:53
+  - --dns01-recursive-nameservers-only=true
+```
 
 ```bash
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
-helm install cert-manager jetstack/cert-manager  --namespace cert-manager  --create-namespace  --set installCRDs=true  --kubeconfig /home/pi/.kube/config.yaml
+helm upgrade --install cert-manager jetstack/cert-manager \
+  -n cert-manager --create-namespace \
+  -f cert-manager-values.yaml \
+  --wait
+
+# Verify
+kubectl -n cert-manager get deploy,po
+kubectl get crd | grep cert-manager.io | wc -l
 ```
 
-- Verify the Installation by checking the Cert-Manager Pods
+> Note
+> PiKube uses NGINX Ingress (Traefik is disabled). Any references to Traefik certificates in older revisions are deprecated.
+
+### Ensure Cloudflare token is available via ESO (Vault → Kubernetes)
+
+ESO should sync the token from Vault path `secret/cert-manager/cloudflare` (field `dns_cloudflare_api_token`) into a Secret named `cloudflare-api-token-secret` with key `api-token` in the `cert-manager` namespace:
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: cloudflare-api-token-secret
+  namespace: cert-manager
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: cloudflare-api-token-secret
+    creationPolicy: Owner
+  data:
+  - secretKey: api-token
+    remoteRef:
+      key: secret/cert-manager/cloudflare
+      property: dns_cloudflare_api_token
+```
+
+Verify Secret exists:
 
 ```bash
-kubectl --kubeconfig /home/pi/.kube/config.yaml get pods --namespace cert-manager
+kubectl -n cert-manager get secret cloudflare-api-token-secret -o yaml | grep -E 'name:|api-token'
 ```
 
-- Check the CRDs
+### Create ClusterIssuer for Let’s Encrypt (DNS‑01, Cloudflare)
+
+Use staging first, then production. Replace `quantfinancehub.com` email accordingly.
+
+```yaml
+# clusterissuer-letsencrypt-staging.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    email: admin@quantfinancehub.com
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+    - dns01:
+        cloudflare:
+          apiTokenSecretRef:
+            name: cloudflare-api-token-secret
+            key: api-token
+```
+
+```yaml
+# clusterissuer-letsencrypt.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-issuer
+spec:
+  acme:
+    email: admin@quantfinancehub.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+    - dns01:
+        cloudflare:
+          apiTokenSecretRef:
+            name: cloudflare-api-token-secret
+            key: api-token
+```
+
+Apply and verify readiness:
 
 ```bash
-kubectl --kubeconfig /home/pi/.kube/config.yaml get crd | grep cert-manager.io
+kubectl apply -f clusterissuer-letsencrypt-staging.yaml
+kubectl apply -f clusterissuer-letsencrypt.yaml
+kubectl get clusterissuer letsencrypt-issuer -o jsonpath='{.status.conditions[*].type} {.status.conditions[*].status} {.status.conditions[*].reason}'
 ```
 
-Once Cert-Manager and its CRDs installation is confirmed, reapply **`traefik-certificate.yaml`** if needed
+> [!NOTE] 🧠 PiKube DNS‑01 and split‑horizon DNS  
+> In PiKube, internal DNS (CoreDNS → Bind9) is authoritative for `picluster.quantfinancehub.com`, while the **public ACME TXT records** live in Cloudflare. By default, cert‑manager uses the cluster DNS (`10.43.0.10`), which only queries Bind9 and may not see `_acme-challenge.*` TXT records in Cloudflare, causing `DNS record not yet propagated` errors even when Cloudflare is correct.  
+>  
+> The `extraArgs` block in `cert-manager-values.yaml` above tells cert‑manager to perform DNS‑01 propagation checks using public recursive DNS instead:
+>
+> ```yaml
+> extraArgs:
+>   - --dns01-recursive-nameservers=1.1.1.1:53,8.8.8.8:53
+>   - --dns01-recursive-nameservers-only=true
+> ```
+>
+> This keeps in‑cluster service discovery using CoreDNS/Bind9, but makes **ACME DNS‑01 validation** use Cloudflare‑visible resolvers, which matches PiKube’s split‑horizon design.
 
-```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f traefik-certificate.yaml
-```
+### Self‑signed / internal CA (optional)
 
-After reapplying, check to ensure that the Certificate resource is successfully created
+If you don’t have a public domain or want a private PKI, bootstrap a self‑signed root and a CA issuer:
 
-```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n traefik get certificate
-```
-
-### Self-Signed Issuer Configuration (Custom CA)
-
-To set up a **`Public Key Infrastructure`** (PKI) using **`Cert-Manager`** in the pi-cluster, a **`custom Certificate Authority`** (CA) will be created and used to auto-sign certificates. This involves creating a **`self-signed ClusterIssuer`** for the **`root CA`** certificate and then **`bootstrapping CA issuers`** with this root certificate.
-
-Here’s how to do it step-by-step:
-
-- Create a **`self-signed ClusterIssuer`**
-
-ClusterIssuer Manifest, **`self-signed-clusterissuer.yaml`**, defines a ClusterIssuer that can issue self-signed certificates
+`self-signed-clusterissuer.yaml`
 
 ```yaml
 apiVersion: cert-manager.io/v1
@@ -112,12 +165,10 @@ spec:
 - Apply the Manifest
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f self-signed-clusterissuer.yaml
+kubectl apply -f self-signed-clusterissuer.yaml
 ```
 
-- Bootstrap CA Issuers for the private PKI and create a CA issuer in **`Cert-Manager`** that references this root certificate.
-
-Certificate Manifest for Root CA, **`selfsigned-ca-certificate.yaml`**, to create a Certificate resource that will be used as a root CA
+`selfsigned-ca-certificate.yaml` (root CA Certificate)
 
 ```yaml
 apiVersion: cert-manager.io/v1
@@ -141,10 +192,10 @@ spec:
 Apply the Manifest to create the root CA certificate
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f selfsigned-ca-certificate.yaml
+kubectl apply -f selfsigned-ca-certificate.yaml
 ```
 
-- ClusterIssuer Manifest for CA Issuer, **`ca-clusterissuer.yaml`**, defines a ClusterIssuer that uses the root CA certificate
+`ca-clusterissuer.yaml` (CA issuer referencing the root)
 
 ```yaml
 apiVersion: cert-manager.io/v1
@@ -160,7 +211,7 @@ spec:
 - Apply the Manifest to create the CA issuer
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f ca-clusterissuer.yaml
+kubectl apply -f ca-clusterissuer.yaml
 ```
 
 To test the setup, create a Test Certificate Manifest, **`test-certificate.yaml`**. This manifest defines a Certificate resource named test-certificate, which will instruct cert-manager to create a TLS certificate with the common name test.example.com, and store it in a Kubernetes Secret named test-certificate-secret
@@ -205,7 +256,7 @@ kubectl --kubeconfig=/home/pi/.kube/config.yaml -n default get secret test-certi
 kubectl --kubeconfig=/home/pi/.kube/config.yaml -n default get secret test-certificate-secret -o yaml
 ```
 
-## Installing Trust Manager in Kubernetes
+## Installing Trust Manager in Kubernetes (optional)
 
 **`Trust Manager`** is an operator designed to distribute trust bundles across a Kubernetes cluster, working alongside cert-manager. It facilitates services in trusting X.509 certificates issued by cert-manager's Issuers, by distributing data (like CA certificates) from the trust namespace.
 
@@ -219,12 +270,15 @@ kubectl --kubeconfig=/home/pi/.kube/config.yaml -n default get secret test-certi
 
   It extends cert-manager's functionality by enabling the broader distribution of trust bundles (like root CAs) created by cert-manager.
 
-**`Trust Manager`** can be installed using Helm in **`cert-manager`** namespace
+**`Trust Manager`** can be installed using Helm in the **`cert-manager`** namespace:
 
 ```bash
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
-helm install trust-manager jetstack/cert-manager --namespace cert-manager --kubeconfig /home/pi/.kube/config.yaml
+
+helm upgrade --install trust-manager jetstack/trust-manager \
+  --namespace cert-manager \
+  --wait
 ```
 
 Check the Trust Manager Pods
@@ -233,167 +287,71 @@ Check the Trust Manager Pods
 kubectl --kubeconfig=/home/pi/.kube/config.yaml -n cert-manager get pods
 ```
 
-## Configuring Let's Encrypt Certificates with Cert-Manager in Kubernetes
+## Requesting certificates and wiring Ingress (NGINX)
 
-**`Let's Encrypt`** provides publicly validated TLS certificates for free, eliminating the need for self-signed certificates. Cert-Manager automates the process of requesting, renewing, and using these certificates in Kubernetes.
-
-**Understanding Let's Encrypt with Cert-Manager:**
-
-- Issue a certificate request to Let’s Encrypt for a domain you own.
-- Let’s Encrypt verifies domain ownership via ACME DNS or HTTP validation.
-- On successful verification, Let’s Encrypt issues the certificates.
-- Cert-manager automatically renews these certificates.
-
-**DNS Validation with Let’s Encrypt:**
-
-- Preferred for scenarios where services aren’t exposed to the public internet.
-- Involves creating a DNS TXT record for domain verification.
-- Cert-manager handles DNS record creation and validation.
-
-### Configuring Cert-Manager with Cloudflare for Let's Encrypt
-
-> [!IMPORTANT]
-> If you own a domain (Cloudflare‑managed in this guide), prefer Let’s Encrypt via DNS‑01. The self‑signed/CA sections are
-> provided only as a fallback for environments without a public domain.
-
-> [!TIP]
-> If you centralize secrets in Vault, store the Cloudflare token at:
-> `secret/cert-manager/cloudflare` with field `dns_cloudflare_api_token`. Use External Secrets Operator (ESO) to map that
-> field to a Kubernetes Secret `cloudflare-api-token-secret` with key `api-token`, which is what cert-manager expects in
-> `apiTokenSecretRef.key`.
-
-#### Recommended (Vault + External Secrets Operator)
-
-1) Ensure ESO is installed and `ClusterSecretStore/vault-backend` exists (see the Vault doc).
-
-2) Create an ExternalSecret that projects the token from Vault:
-
-```yaml
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: cloudflare-api-token-secret
-  namespace: cert-manager
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: vault-backend
-    kind: ClusterSecretStore
-  target:
-    name: cloudflare-api-token-secret
-    creationPolicy: Owner
-  data:
-    - secretKey: api-token
-      remoteRef:
-        key: cert-manager/cloudflare
-        property: dns_cloudflare_api_token
-```
-
-3) Create the ClusterIssuer:
-
-```yaml
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-issuer
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: <your-lets-encrypt-email>
-    privateKeySecretRef:
-      name: letsencrypt-private-key
-    solvers:
-      - dns01:
-          cloudflare:
-            apiTokenSecretRef:
-              name: cloudflare-api-token-secret
-              key: api-token
-```
-
-4) Verify issuer readiness:
-
-```bash
-kubectl get clusterissuer letsencrypt-issuer -o jsonpath='{.status.conditions[*].type} {.status.conditions[*].status} {.status.conditions[*].reason}'
-```
-
-5) Issue a test certificate (adjust host):
+Example Certificate for a host served by NGINX Ingress (DNS‑01 validation, Secret consumed by the Ingress):
 
 ```yaml
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: test-cert
-  namespace: default
+  name: argocd-cert
+  namespace: argocd
 spec:
   dnsNames:
-    - argocd.picluster.quantfinancehub.com
-  secretName: test-cert-tls
+  - argocd.picluster.quantfinancehub.com
+  secretName: argocd-tls
   issuerRef:
     name: letsencrypt-issuer
     kind: ClusterIssuer
 ```
 
-Check status/events:
-
-```bash
-kubectl -n default describe certificate test-cert
-kubectl -n default get secret test-cert-tls
-```
-
-- Alternative (without Vault/ESO): create a Kubernetes Secret manually.
+Ingress referencing the TLS Secret (ingress-nginx):
 
 ```yaml
-apiVersion: v1
-kind: Secret
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: cloudflare-api-token-secret
-  namespace: cert-manager
-type: Opaque
-stringData:
-  api-token: <your-cloudflare-api-token>
-```
-
-- Apply Manifest
-
-```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f cloudflare-api-token-secret.yaml
-```
-
-- Check if the secret has been created successfully
-
-```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml -n cert-manager get secret cloudflare-api-token-secret
-```
-
-- Define a ClusterIssuer resource with **`Cloudflare`** for **`Let's Encrypt`** in **`cert-manager-letsencrypt-clusterissuer-cloudflare.yaml`**
-
-```yaml
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-issuer
+  name: argocd
+  namespace: argocd
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: <your-lets-encrypt-email>
-    privateKeySecretRef:
-      name: letsencrypt-private-key
-    solvers:
-      - dns01:
-          cloudflare:
-            apiTokenSecretRef:
-              name: cloudflare-api-token-secret
-              key: api-token
+  ingressClassName: nginx
+  rules:
+  - host: argocd.picluster.quantfinancehub.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argocd-server
+            port:
+              number: 443
+  tls:
+  - hosts:
+    - argocd.picluster.quantfinancehub.com
+    secretName: argocd-tls
 ```
 
-- Apply Manifest
+Verify status:
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml apply -f cert-manager-letsencrypt-clusterissuer-cloudflare.yaml
+kubectl -n argocd get certificate argocd-cert -o wide
+kubectl -n argocd describe challenge | sed -n '1,120p'
+kubectl -n nginx get svc ingress-nginx-controller -o wide
 ```
 
-- Check its creation and readiness
+> Tip
+> Start with `letsencrypt-staging` to avoid rate limits; switch `issuerRef.name` to `letsencrypt-issuer` once it’s working.
+
+## Renewal and health
+
+cert-manager auto‑renews ACME certs well before expiry. Confirm controller/webhook Ready and watch events:
 
 ```bash
-kubectl --kubeconfig=/home/pi/.kube/config.yaml describe clusterissuer letsencrypt-issuer
+kubectl -n cert-manager get po
+kubectl -n cert-manager logs deploy/cert-manager | tail -n 50
+kubectl get certificate,order,challenge -A
 ```

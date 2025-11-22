@@ -307,17 +307,62 @@ kubectl create namespace external-dns
 
 #### 3. Create TSIG Secret
 
-Extract the TSIG secret and create a Kubernetes secret:
+The TSIG key is generated on the Bind9 server (blueberry-master) and also stored centrally in Vault.  
+For External-DNS in PiKube, the **recommended** way to expose this key to Kubernetes is via **External Secrets Operator (ESO)**, so Kubernetes never becomes the source of truth for the TSIG value.
+
+> [!TIP] 🔐 Canonical TSIG Location in Vault  
+> After generating `/etc/bind/externaldns.key` on `blueberry-master`, the TSIG secret is stored in Vault at:  
+> `secret/ddns-bind9` with field `key`.  
+> External-DNS only reads the TSIG key via ESO from this path.
+
+**Recommended: Vault + External Secrets Operator (ESO)**
+
+Create an `ExternalSecret` that syncs the TSIG key from Vault into the `external-dns` namespace:
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: external-dns-bind9-secret
+  namespace: external-dns
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: external-dns-bind9-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: ddns-key
+      remoteRef:
+        key: ddns-bind9      # Vault path under the 'secret/' mount
+        property: key        # Field inside that secret containing the TSIG value
+```
+
+Verify that ESO has created the Kubernetes secret:
 
 ```bash
-# Extract secret from TSIG key file
+kubectl -n external-dns get externalsecret external-dns-bind9-secret
+kubectl -n external-dns get secret external-dns-bind9-secret
+```
+
+**Alternative (lab / no Vault yet): manual Secret**
+
+If you are running a lab environment without Vault/ESO, you can still create the TSIG secret directly from the Bind9 key file:
+
+```bash
+# Extract secret from TSIG key file (run on blueberry-master)
 TSIG_SECRET=$(grep -oP 'secret "\K[^"]+' /etc/bind/externaldns.key)
 
-# Create Kubernetes secret
+# Create Kubernetes secret (from a node with kubectl configured)
 kubectl create secret generic external-dns-bind9-secret \
   --namespace external-dns \
   --from-literal=ddns-key="$TSIG_SECRET"
 ```
+
+> [!WARNING]  
+> In production PiKube, prefer the **Vault + ESO** approach above and treat this manual secret creation as a fallback only.
 
 #### 4. Configuration
 
@@ -364,6 +409,10 @@ sources:
 domainFilters:
   - picluster.quantfinancehub.com
 
+> [!NOTE] 🌐 Cloudflare Context  
+> PiKube uses **Cloudflare** to manage the public `quantfinancehub.com` zone and to support Let's Encrypt DNS‑01 challenges (as described in the TLS and Vault/Minio documentation).  
+> The External-DNS setup in this document manages only the **internal** zone `picluster.quantfinancehub.com` hosted in Bind9; it does **not** talk directly to Cloudflare.
+
 # Resource configuration
 resources:
   requests:
@@ -384,8 +433,18 @@ securityContext:
       - ALL
 
 # Monitoring
+# If you have installed the Prometheus Operator / kube-prometheus-stack (see
+# docs/9-monitoring/7-monitoring-prometheus.md), you can enable ServiceMonitor
+# to have External-DNS scraped automatically:
+#
+# serviceMonitor:
+#   enabled: true
+#   interval: 30s
+#
+# If kube-prometheus-stack is NOT yet installed, set enabled: false to avoid
+# Helm failing with "no matches for kind \"ServiceMonitor\"":
 serviceMonitor:
-  enabled: true
+  enabled: false
   interval: 30s
 
 # Logging

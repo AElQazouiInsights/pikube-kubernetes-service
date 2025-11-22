@@ -167,26 +167,97 @@ volcano-admission-xxx               1/1     Running   0          2m
 
 ### Step 1: Label Nodes for Hardware Awareness
 
-Label nodes based on PiKube hardware specifications for intelligent scheduling:
+PiKube already uses a consistent node labeling scheme based on the hardware inventory
+(`pikube.io/*` labels). Volcano can reuse these labels directly instead of introducing
+a separate scheme.
+
+Key labels used today:
+
+- `pikube.io/device-type`: `raspberry-pi-5`, `orange-pi-5`, `orange-pi-5-ultra`
+- `pikube.io/cpu-cores`: number of CPU cores
+- `pikube.io/memory-gb`: node memory in GiB
+- `pikube.io/storage-gb`: total storage capacity
+- `pikube.io/storage-type`: `sd-card` or `sd-card---nvme`
+- `pikube.io/has-nvme`: `true` on NVMe nodes (lemon, clementine, grapefruit)
+
+Verify labels:
 
 ```bash
-# Label master nodes
-kubectl label node blueberry-master node-tier=control-plane hardware-type=raspberry-pi-4b storage-tier=standard network-speed=1g
-kubectl label node strawberry-master node-tier=control-plane hardware-type=raspberry-pi-4b storage-tier=standard network-speed=1g  
-kubectl label node blackberry-master node-tier=control-plane hardware-type=raspberry-pi-4b storage-tier=standard network-speed=1g
-
-# Label high-performance AI workers (Orange Pi 5 Ultra)
-kubectl label node grapefruit-worker node-tier=tier1-ultra hardware-type=orange-pi-5-ultra storage-tier=nvme network-speed=2.5g ai-capability=6-tops
-kubectl label node lemon-worker node-tier=tier1-ultra hardware-type=orange-pi-5-ultra storage-tier=high network-speed=2.5g ai-capability=6-tops
-kubectl label node clementine-worker node-tier=tier1-ultra hardware-type=orange-pi-5-ultra storage-tier=high network-speed=2.5g ai-capability=6-tops
-
-# Label standard AI workers (Orange Pi 5)
-kubectl label node orange-worker node-tier=tier2-standard hardware-type=orange-pi-5 storage-tier=high network-speed=1g ai-capability=6-tops
-kubectl label node mandarine-worker node-tier=tier2-standard hardware-type=orange-pi-5 storage-tier=high network-speed=1g ai-capability=6-tops
-
-# Label basic worker (Raspberry Pi 5)
-kubectl label node cranberry-worker node-tier=tier3-basic hardware-type=raspberry-pi-5 storage-tier=high network-speed=1g ai-capability=none
+kubectl get nodes --show-labels
 ```
+
+### Current Label Baseline (Derived from inventory.yaml)
+
+The following labels reflect the actual PiKube hardware inventory and should be
+applied to nodes (either manually or via Ansible):
+
+```bash
+# Raspberry Pi 4 masters
+kubectl label node blueberry-master  pikube.io/device-type=raspberry-pi-4b  \
+                                     pikube.io/cpu-cores=4                 \
+                                     pikube.io/memory-gb=8                 \
+                                     pikube.io/storage-type=sd-card        \
+                                     pikube.io/storage-gb=120 --overwrite
+
+kubectl label node strawberry-master pikube.io/device-type=raspberry-pi-4b  \
+                                     pikube.io/cpu-cores=4                 \
+                                     pikube.io/memory-gb=4                 \
+                                     pikube.io/storage-type=sd-card        \
+                                     pikube.io/storage-gb=120 --overwrite
+
+kubectl label node blackberry-master pikube.io/device-type=raspberry-pi-4b  \
+                                     pikube.io/cpu-cores=4                 \
+                                     pikube.io/memory-gb=4                 \
+                                     pikube.io/storage-type=sd-card        \
+                                     pikube.io/storage-gb=120 --overwrite
+
+# Raspberry Pi 5 worker
+kubectl label node cranberry-worker  pikube.io/device-type=raspberry-pi-5   \
+                                     pikube.io/cpu-cores=4                 \
+                                     pikube.io/memory-gb=8                 \
+                                     pikube.io/storage-type=sd-card        \
+                                     pikube.io/storage-gb=240 --overwrite
+
+# Orange Pi 5 workers (SD only)
+kubectl label node orange-worker     pikube.io/device-type=orange-pi-5      \
+                                     pikube.io/cpu-cores=8                 \
+                                     pikube.io/memory-gb=16                \
+                                     pikube.io/storage-type=sd-card        \
+                                     pikube.io/storage-gb=240 --overwrite
+
+kubectl label node mandarine-worker  pikube.io/device-type=orange-pi-5      \
+                                     pikube.io/cpu-cores=8                 \
+                                     pikube.io/memory-gb=16                \
+                                     pikube.io/storage-type=sd-card        \
+                                     pikube.io/storage-gb=240 --overwrite
+
+# Orange Pi 5 Ultra workers (SD + NVMe)
+kubectl label node lemon-worker      pikube.io/device-type=orange-pi-5-ultra \
+                                     pikube.io/cpu-cores=8                  \
+                                     pikube.io/memory-gb=16                 \
+                                     pikube.io/storage-type=sd-card---nvme  \
+                                     pikube.io/storage-gb=1240              \
+                                     pikube.io/has-nvme=true --overwrite
+
+kubectl label node clementine-worker pikube.io/device-type=orange-pi-5-ultra \
+                                     pikube.io/cpu-cores=8                  \
+                                     pikube.io/memory-gb=16                 \
+                                     pikube.io/storage-type=sd-card---nvme  \
+                                     pikube.io/storage-gb=1240              \
+                                     pikube.io/has-nvme=true --overwrite
+
+kubectl label node grapefruit-worker pikube.io/device-type=orange-pi-5-ultra \
+                                     pikube.io/cpu-cores=8                  \
+                                     pikube.io/memory-gb=16                 \
+                                     pikube.io/storage-type=sd-card---nvme  \
+                                     pikube.io/storage-gb=1240              \
+                                     pikube.io/has-nvme=true --overwrite
+```
+
+These labels are the foundation for the affinity and queue examples below (for example,
+preferring `pikube.io/has-nvme=true` nodes for high‑I/O workloads or
+`pikube.io/device-type=orange-pi-5-ultra` for AI jobs). In the future, Ansible
+playbooks will apply these labels automatically from `inventory.yaml`.
 
 ### Step 2: Create Resource Queues
 
@@ -269,11 +340,11 @@ EOF
 ### Step 3: Verify Queue Configuration
 
 ```bash
-# List all queues
-kubectl get queues -n volcano-system
+# List all queues (cluster-scoped)
+kubectl get queue
 
 # Check queue details
-kubectl describe queue logging-critical -n volcano-system
+kubectl describe queue logging-critical
 ```
 
 ## Fix Logging Infrastructure Issues
@@ -323,9 +394,9 @@ kubectl patch statefulset efk-es-default -n logging --type='merge' -p='
                 "preference": {
                   "matchExpressions": [
                     {
-                      "key": "storage-tier",
+                      "key": "pikube.io/has-nvme",
                       "operator": "In",
-                      "values": ["nvme", "high"]
+                      "values": ["true"]
                     }
                   ]
                 }
@@ -467,7 +538,7 @@ kubectl exec -n logging efk-es-default-0 -- curl -s localhost:9200/_cluster/heal
 
 ```bash
 # Check queue resource allocation
-kubectl describe queues -n volcano-system
+kubectl describe queue
 
 # Monitor node resource distribution
 kubectl top nodes
@@ -593,6 +664,12 @@ spec:
 EOF
 ```
 
+> [!NOTE] 📊 Prometheus Operator Required  
+> The `ServiceMonitor` resource is provided by the Prometheus Operator (kube-prometheus-stack).
+> Make sure you have followed `docs/9-monitoring/7-monitoring-prometheus.md` to install
+> kube-prometheus-stack **before** applying the `ServiceMonitor` manifest. If the CRDs are not
+> installed yet, skip this step for now and add it after monitoring is in place.
+
 ### Configure Node Affinity Rules
 
 For optimal performance on PiKube's heterogeneous hardware:
@@ -604,15 +681,15 @@ nodeAffinity:
   - weight: 100
     preference:
       matchExpressions:
-      - key: storage-tier
+      - key: pikube.io/has-nvme
         operator: In
-        values: ["nvme"]
+        values: ["true"]
   - weight: 80
     preference:
       matchExpressions:
-      - key: node-tier
+      - key: pikube.io/device-type
         operator: In
-        values: ["tier1-ultra"]
+        values: ["orange-pi-5-ultra"]
 ```
 
 ---

@@ -40,7 +40,7 @@ This section details how to set up a distributed tracing solution on your Kubern
 
 **Grafana Tempo** serves as the traces backend, complemented by Grafana for visualization. Tempo integrates with an [**`OpenTelemetry collector`**](https://opentelemetry.io/docs/collector/) to ingest traces from popular protocols such as Jaeger, Zipkin, and OpenTelemetry.
 
-Tempo requires only object storage as a backend and integrates seamlessly with Grafana, Prometheus, and Loki. In this setup, Minio S3 storage will serve as Tempo's backend.
+Tempo requires only object storage as a backend and integrates seamlessly with Grafana, Prometheus, and Loki. In PiKube, a **highly-available in-cluster MinIO Tenant on Longhorn** serves as the primary S3 backend for Tempo (and Loki), with data periodically mirrored to the external MinIO instance on `blueberry-master` for disaster recovery.
 
 ## Tempo Architecture
 
@@ -76,67 +76,54 @@ Minio acts as the long-term storage solution for Tempo’s chunks and indexes.
 
 ::: note
 
-The Tempo Helm chart can install Minio as a subchart, but that’s disabled here since the cluster already has a Minio service deployed. The Tempo S3 bucket, policy, and user for Minio have been set up as part of the Minio installation process. See [**`Minio S3 Object Storage Service`**](../8-storage/2-s3-object-storage-service-minio.md) for details.
+The Tempo Helm chart can install Minio as a subchart, but that’s disabled here since the cluster already has:
+
+- An **in-cluster HA MinIO Tenant** (`minio-ha`) on Longhorn, exposed as `https://s3.picluster.quantfinancehub.com`.  
+- An **external MinIO** on `blueberry-master` used for backup/DR.
+
+The Tempo S3 bucket, policy, and user for MinIO are set up as part of the HA MinIO installation. See [**`Minio S3 Object Storage Service (High Availability)`**](../8-storage/2-s3-object-storage-service-minio-ha.md) for details.
 
 :::
 
-### Creating the Minio User and Bucket
+### MinIO HA Tenant buckets and users for Tempo
 
-- On `blueberry-master`, use `mc` (Minio Client) to create a bucket and user for Tempo
+On `blueberry-master`, we configured the HA Tenant as follows:
 
-```bash
-mc mb <minio_alias>/k3s-tempo # <minio_alias> being PiKubeS3Cluster, previously setup
-mc admin user add <minio_alias> tempo <user_password>
-```
+- Buckets:
+  - `k3s-loki` – Loki log storage
+  - `k3s-tempo` – Tempo trace storage
+- Users:
+  - `loki` – S3 user bound to `k3s-loki`
+  - `tempo` – S3 user bound to `k3s-tempo`
 
-::: note
-
-[**`Tempo`**](https://grafana.com/docs/tempo/latest/configuration/s3/#amazon-s3-permissions) requires the following permissions for S3 object storage:
-
-- s3:ListBucket
-- s3:PutObject
-- s3:GetObject
-- s3:DeleteObject
-- s3:GetObjectTagging
-- s3:PutObjectTagging
-
-:::
-
-These apply to `arn:aws:s3:::k3s-tempo` and `arn:aws:s3:::k3s-tempo/*`
-
-- Apply the policy to the tempo user
-
-```bash
-mc admin policy add <minio_alias> tempo user_policy.json
-```
-
-Where `user_policy.json` contains the AWS access policies definition
+The `tempo` user has the following S3 permissions (attached as a MinIO policy), matching Tempo’s requirements:
 
 ```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "TempoPermissions",
-            "Effect": "Allow",
-            "Action": [
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:ListBucket",
-                "s3:DeleteObject",
-                "s3:GetObjectTagging",
-                "s3:PutObjectTagging"
-            ],
-            "Resource": [
-                "arn:aws:s3:::k3s-tempo/*",
-                "arn:aws:s3:::k3s-tempo"
-            ]
-        }
-    ]
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:PutObject",
+        "s3:GetObjectTagging",
+        "s3:PutObjectTagging"
+      ],
+      "Resource": [
+        "arn:aws:s3:::k3s-tempo",
+        "arn:aws:s3:::k3s-tempo/*"
+      ]
+    }
+  ]
 }
 ```
 
-### Tempo Installation
+Credentials (`user`, `key`) are stored in Vault under `secret/minio/tempo` and projected into Kubernetes using External Secrets (see below).
+
+### Tempo Installation (using HA MinIO as backend)
 
 - Add the Grafana repository
 
@@ -156,7 +143,7 @@ helm repo update
 kubectl create namespace tracing
 ```
 
-- Create `tempo-values.yaml` with the following configuration
+- Create `tempo-values.yaml` with the following configuration (directly embedding the MinIO credentials). Later, we show how to externalize these into a Secret managed by External Secrets.
 
 ```yaml
 # Enable trace ingestion protocols
@@ -181,10 +168,11 @@ storage:
   trace:
     backend: s3
     s3:
-      bucket: <minio_tempo_bucket>
-      endpoint: <minio_endpoint>
-      region: <minio_site_region>
-      access_key: <minio_tempo_user>
+      bucket: k3s-tempo
+      endpoint: s3.picluster.quantfinancehub.com
+      # Region is informational for MinIO; match your MINIO_SITE_REGION if set
+      region: eu-west-1
+      access_key: tempo
       secret_key: <minio_tempo_key>
       insecure: false
 
@@ -211,23 +199,40 @@ helm install tempo grafana/tempo-distributed -f tempo-values.yaml --namespace tr
 kubectl get pods -l app.kubernetes.io/name=tempo -n tracing
 ```
 
-### GitOps Installation (Optional)
+### GitOps Installation with External Secrets (Recommended for PiKube)
 
-For GitOps deployments, create a secret with Minio credentials, and use environment variables in the Tempo configuration:
+For GitOps deployments, Tempo should read MinIO credentials from a Secret managed by External Secrets Operator, which in turn sources them from Vault.
+
+First, create an `ExternalSecret` in the `tracing` namespace that projects `secret/minio/tempo` from Vault:
 
 ```yaml
-apiVersion: v1
-kind: Secret
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
 metadata:
-  name: tempo-minio-secret
+  name: tempo-minio-credentials
   namespace: tracing
-type: Opaque
-data:
-  MINIO_ACCESS_KEY_ID: <Encoded minio_tempo_user>
-  MINIO_SECRET_ACCESS_KEY: <Encoded minio_tempo_key>
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: tempo-minio-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: MINIO_ACCESS_KEY_ID
+      remoteRef:
+        key: secret/minio/tempo
+        property: user
+    - secretKey: MINIO_SECRET_ACCESS_KEY
+      remoteRef:
+        key: secret/minio/tempo
+        property: key
 ```
 
-Then reference these environment variables in the Helm chart values (`-config.expand-env=true` and `extraEnv` fields) for distributor, ingester, compactor, querier, and query-frontend.
+This produces a Secret `tempo-minio-secret` with keys `MINIO_ACCESS_KEY_ID` (`tempo`) and `MINIO_SECRET_ACCESS_KEY` (the MinIO key).
+
+Then reference these environment variables in the Tempo configuration (`-config.expand-env=true` and `extraEnv` fields) for distributor, ingester, compactor, querier, and query-frontend:
 
 ```yaml
 # Enable trace ingestion
