@@ -93,26 +93,91 @@ This section describes how to deploy Keycloak on Kubernetes using the **official
 kubectl create namespace keycloak
 ```
 
-### 2. Provision PostgreSQL (recommended: CloudNativePG)
+### 2. Provision PostgreSQL for Keycloak (CloudNativePG)
 
 The Keycloak Operator does **not** manage a database. You must provision PostgreSQL separately and expose it inside the cluster.
 
-On PiKube the recommended approach is to use **CloudNativePG** to run a small HA PostgreSQL cluster on Longhorn-backed storage (NVMe workers).
+On PiKube the recommended pattern is to run a small **CloudNativePG** cluster dedicated to Keycloak in the `keycloak` namespace, with backups stored on the external MinIO server.
 
-> [!NOTE]
-> The detailed CloudNativePG installation steps and operator configuration are described in the general Databases documentation at
-> `docs/12-microservices/1-databases.md`. For Keycloak you typically create a dedicated `keycloak-db` cluster with:
-> - 2–3 instances (depending on how critical SSO is for you)
-> - StorageClass `longhorn`
-> - Database name `keycloak`, user `keycloak`
->
-> While CloudNativePG is the chosen production pattern for PiKube, simpler options are possible in development or lab environments:
-> - A single PostgreSQL instance (on a VM, bare metal host, or a basic `Deployment` in Kubernetes).
-> - An “integrated” PostgreSQL managed together with Keycloak by a Helm chart (Keycloak + bundled Postgres in one release).
->
-> These simplified approaches reduce operational complexity but also remove high-availability guarantees and can make upgrades and backups harder to manage. For anything beyond short‑lived testing, prefer the CloudNativePG-based design documented here.
+1. **Create MinIO credentials in Vault (on gateway)**  
+   On the `gateway` node (where Vault runs):
 
-Once CloudNativePG is installed and the `keycloak-db` cluster exists, it will expose a read/write service such as `keycloak-db-rw.keycloak.svc.cluster.local:5432` that Keycloak can connect to.
+   ```bash
+   export VAULT_ADDR=https://vault.picluster.quantfinancehub.com:8200
+   export VAULT_TOKEN=$(cat ~/.vault-token)
+
+   # MinIO user for keycloak-db backups (bucket s3://k3s-barman/keycloak-db)
+   vault kv put secret/minio/keycloak-db \
+     user="<KEYCLOAK_DB_S3_ACCESS_KEY>" \
+     key="<KEYCLOAK_DB_S3_SECRET_KEY>"
+   ```
+
+2. **Project these credentials into Kubernetes via ExternalSecret**  
+   In the `keycloak` namespace, create an `ExternalSecret` that materializes `keycloak-minio-secret`:
+
+   ```yaml
+   apiVersion: external-secrets.io/v1
+   kind: ExternalSecret
+   metadata:
+     name: keycloak-minio-credentials
+     namespace: keycloak
+   spec:
+     refreshInterval: 1h
+     secretStoreRef:
+       name: vault-backend
+       kind: ClusterSecretStore
+     target:
+       name: keycloak-minio-secret
+       creationPolicy: Owner
+     data:
+       - secretKey: AWS_ACCESS_KEY_ID
+         remoteRef:
+           key: secret/minio/keycloak-db
+           property: user
+       - secretKey: AWS_SECRET_ACCESS_KEY
+         remoteRef:
+           key: secret/minio/keycloak-db
+           property: key
+   ```
+
+3. **Create the CloudNativePG `keycloak-db` cluster**  
+   This example matches the current PiKube cluster and wires backups to MinIO via `keycloak-minio-secret`:
+
+   ```yaml
+   apiVersion: postgresql.cnpg.io/v1
+   kind: Cluster
+   metadata:
+     name: keycloak-db
+     namespace: keycloak
+   spec:
+     instances: 3
+     imageName: ghcr.io/cloudnative-pg/postgresql:16.3-4
+     storage:
+       size: 10Gi
+       storageClass: longhorn
+     monitoring:
+       enablePodMonitor: true
+     bootstrap:
+       initdb:
+         database: keycloak
+         owner: keycloak
+         secret:
+           name: keycloak-db-secret   # created by ExternalSecret below
+     backup:
+       barmanObjectStore:
+         destinationPath: s3://k3s-barman/keycloak-db
+         endpointURL: https://s3.quantfinancehub.com:9091
+         s3Credentials:
+           accessKeyId:
+             name: keycloak-minio-secret
+             key: AWS_ACCESS_KEY_ID
+           secretAccessKey:
+             name: keycloak-minio-secret
+             key: AWS_SECRET_ACCESS_KEY
+       retentionPolicy: 30d
+   ```
+
+   This cluster exposes a read/write service at `keycloak-db-rw.keycloak.svc.cluster.local:5432`, which the Keycloak CR will use.
 
 ### 3. Manage credentials via External Secrets
 
@@ -200,8 +265,9 @@ Verify the operator pod in the `keycloak` namespace is `Running` before continui
 
 Create a `Keycloak` custom resource that:
 
-- Points to the external PostgreSQL (`keycloak-db-rw` service).  
-- Uses secrets projected by ESO for DB credentials and bootstrap admin.
+- Points to the external PostgreSQL (`keycloak-db-rw` service) managed by CloudNativePG.  
+- Uses secrets projected by ESO for DB credentials and bootstrap admin.  
+- Relies on a separate CloudNativePG `Cluster` (`keycloak-db`) with S3 backups configured via the `keycloak-minio-secret` created by an ExternalSecret (see the Databases and Vault/External Secrets docs for the full `Cluster` and `ExternalSecret` manifests).
 
 Example (aligned with the current cluster):
 
@@ -214,7 +280,9 @@ metadata:
 spec:
   instances: 1
   hostname:
-    hostname: sso.picluster.quantfinancehub.com
+    # IMPORTANT: use the full HTTPS URL here so that
+    # the OIDC discovery document advertises an HTTPS issuer.
+    hostname: https://sso.picluster.quantfinancehub.com
   http:
     # TLS is terminated at NGINX Ingress; Keycloak serves plain HTTP internally.
     httpEnabled: true
@@ -290,6 +358,44 @@ nslookup sso.picluster.quantfinancehub.com
 
 If it not resolving to `10.0.0.100`, open Notepad as Administrator, then open the file `C:\Windows\System32\drivers\etc\hosts` and add `10.0.0.100   sso.picluster.quantfinancehub.com`.
 
+### 6. Sanity checks (Keycloak DB + SSO)
+
+Before wiring more UIs through SSO, verify that both the database cluster and Keycloak itself are healthy:
+
+- **Check CloudNativePG cluster and pods**
+
+```bash
+kubectl -n keycloak get cluster keycloak-db
+kubectl -n keycloak get pods -l cnpg.io/cluster=keycloak-db
+```
+
+You should see `keycloak-db-1/2/3` Running, with at least 2 Ready instances and a clearly identified primary.
+
+- **Confirm MinIO backup credentials are synced**
+
+```bash
+kubectl -n keycloak get externalsecret keycloak-minio-credentials
+kubectl -n keycloak get secret keycloak-minio-secret -o yaml
+```
+
+The `keycloak-minio-secret` should contain `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` projected from Vault.
+
+- **Verify Keycloak ingress and OIDC issuer**
+
+```bash
+kubectl -n keycloak get ingress picluster-keycloak-ingress
+kubectl -n monitoring exec -it deploy/kube-prometheus-stack-grafana-7d68f58994-8twh7 -c grafana -- \
+  sh -lc 'curl -ksS https://sso.picluster.quantfinancehub.com/realms/picluster/.well-known/openid-configuration | jq .issuer'
+```
+
+The issuer should be exactly:
+
+```json
+"https://sso.picluster.quantfinancehub.com/realms/picluster"
+```
+
+Once these checks pass, the Keycloak + CloudNativePG + MinIO + oauth2-proxy stack is ready to protect additional UIs.
+
 ### Alternative installation using External Secret (GitOps)
 
 When implementing GitOps practices, particularly with tools like ArgoCD, it's recommended to separate sensitive information from the main configuration. External Secrets provide a secure way to manage credentials separately from your GitOps workflow, offering several benefits:
@@ -350,7 +456,7 @@ Instead of using Bitnami's PostgreSQL subchart, an external PostgreSQL database 
 2. Create a new realm named 'picluster'
 3. Procedure in Keycloak documentation: [Keycloak: Creating an OpenID Connect client](https://www.keycloak.org/docs/latest/server_admin/#proc-creating-oidc-client_server_administration_guide)
 
-### Configure Oauth2-Proxy Client
+### Configure OAuth2-Proxy Client
 
 Follow procedure in [Oauth2-Proxy: Keycloak OIDC Auth Provider Configuration](https://oauth2-proxy.github.io/oauth2-proxy/configuration/providers/keycloak_oidc) to provide the proper configuration.
 
@@ -380,7 +486,7 @@ Follow procedure in [Oauth2-Proxy: Keycloak OIDC Auth Provider Configuration](ht
 </p>
 
 - `Login settings`
-  - `Valid redirect URI`: `https://ouath2-proxy.picluster.quantfinancehub.com/oauth2/callback`
+  - `Valid redirect URI`: `https://oauth2-proxy.picluster.quantfinancehub.com/oauth2/callback`
 
 <p align="center">
     <img alt="keycloak-login-settings"
@@ -549,7 +655,7 @@ EOF
 kubectl get secret oauth2-proxy-secret -n oauth2-proxy -o jsonpath="{.data}" | jq
 ```
 
-### Standard Installation
+### Standard Installation (aligned with current PiKube cluster)
 
 - Add Helm repository:
 
@@ -574,15 +680,26 @@ config:
     provider="keycloak-oidc"
     provider_display_name="Keycloak"
     redirect_url="https://oauth2-proxy.picluster.quantfinancehub.com/oauth2/callback"
-    oidc_issuer_url="http://sso.picluster.quantfinancehub.com/realms/picluster"
+    # IMPORTANT: this must match the issuer in the
+    # OIDC discovery document:
+    #   https://sso.picluster.quantfinancehub.com/realms/picluster/.well-known/openid-configuration
+    oidc_issuer_url="https://sso.picluster.quantfinancehub.com/realms/picluster"
     code_challenge_method="S256"
+    # TLS is terminated at the NGINX ingress using a Let's Encrypt
+    # certificate. For extra safety you can set this to false once
+    # you have confirmed CA trust inside the container.
     ssl_insecure_skip_verify=true
     http_address="0.0.0.0:4180"
     upstreams="file:///dev/null"
     email_domains=["*"]
     cookie_domains=["picluster.quantfinancehub.com"]
     cookie_secure=false
+    # Request only the mandatory OpenID scope and let oauth2-proxy
+    # use the subject (sub) claim as the stable user identifier.
+    # This avoids Keycloak invalid_scope errors and does not depend
+    # on email/profile being configured as client scopes.
     scope="openid"
+    oidc_email_claim="sub"
     whitelist_domains=[".picluster.quantfinancehub.com"]
     insecure_oidc_allow_unverified_email="true"
 

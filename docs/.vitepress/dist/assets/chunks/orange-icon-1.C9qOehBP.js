@@ -1,1 +1,0 @@
-const s="/pikube-kubernetes-service/assets/raspberry-icon-1.CG7N6r18.jpg",e="/pikube-kubernetes-service/assets/circuit-board-icon-1.CfifDMRF.jpg",r="/pikube-kubernetes-service/assets/orange-icon-1.CFMmqCPI.jpg";export{s as _,e as a,r as b};

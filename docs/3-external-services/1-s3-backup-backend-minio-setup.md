@@ -611,6 +611,7 @@ The following buckets need to be created for backing-up different cluster compon
 - Longhorn Backup: **`k3s-longhorn`**
 - Velero Backup: **`k3s-velero`**
 - OS backup: **`restic`**
+- CloudNativePG / Barman backups (Keycloak DB and future databases): **`k3s-barman`**
 
   - Start by creating the required buckets using Minio's CLI (mc):
 
@@ -618,6 +619,7 @@ The following buckets need to be created for backing-up different cluster compon
   sudo mc mb <minio_alias>/k3s-longhorn
   sudo mc mb <minio_alias>/k3s-velero
   sudo mc mb <minio_alias>/restic
+  sudo mc mb <minio_alias>/k3s-barman
   ```
 
   - Create users with specific credentials:
@@ -626,9 +628,10 @@ The following buckets need to be created for backing-up different cluster compon
   sudo mc admin user add <minio_alias> longhorn longhorn_password
   sudo mc admin user add <minio_alias> velero velero_password
   sudo mc admin user add <minio_alias> restic restic_password
+  sudo mc admin user add <minio_alias> keycloak-db keycloak_db_password
   ```
 
-  Replace `longhorn_password`, `velero_password`, and `restic_password` with the desired passwords for these users.
+  Replace `longhorn_password`, `velero_password`, `restic_password`, and `keycloak_db_password` with the desired passwords for these users.
 
   To list all users in a MinIO setup using the mc command-line tool
 
@@ -724,12 +727,37 @@ The following buckets need to be created for backing-up different cluster compon
   }
   ```
 
+  For the `keycloak-db` user (CloudNativePG / Barman backups):
+
+  ```json
+  // Save this as /etc/minio/policy/keycloak-db_policy.json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:DeleteObject",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:PutObject"
+        ],
+        "Resource": [
+          "arn:aws:s3:::k3s-barman",
+          "arn:aws:s3:::k3s-barman/*"
+        ]
+      }
+    ]
+  }
+  ```
+
   - Now, assign these policies to the respective users:
 
   ```bash
   sudo mc admin policy create <minio_alias> longhorn /etc/minio/policy/longhorn_policy.json
   sudo mc admin policy create <minio_alias> velero /etc/minio/policy/velero_policy.json
   sudo mc admin policy create <minio_alias> restic /etc/minio/policy/restic_policy.json
+  sudo mc admin policy create <minio_alias> keycloak-db /etc/minio/policy/keycloak-db_policy.json
   ```
 
   - Assign Policies to Users by linking the created policies to the corresponding users:
@@ -738,6 +766,7 @@ The following buckets need to be created for backing-up different cluster compon
   sudo mc admin policy attach <minio_alias> longhorn --user longhorn
   sudo mc admin policy attach <minio_alias> velero --user velero
   sudo mc admin policy attach <minio_alias> restic --user restic
+  sudo mc admin policy attach <minio_alias> keycloak-db --user keycloak-db
   ```
 
   To verify if the policy has been successfully attached to the user
@@ -746,9 +775,10 @@ The following buckets need to be created for backing-up different cluster compon
   sudo mc admin user info <minio_alias> longhorn
   sudo mc admin user info <minio_alias> velero
   sudo mc admin user info <minio_alias> restic
+  sudo mc admin user info <minio_alias> keycloak-db
   ```
 
-Now, Minio server is set up with three buckets (`k3s-longhorn`, `k3s-velero`, and `restic`), three users (`longhorn`, `velero`, and `restic`), and access policies granting each user read-write permissions only to their respective buckets.
+Now, Minio server is set up with four buckets (`k3s-longhorn`, `k3s-velero`, `restic`, and `k3s-barman`), four users (`longhorn`, `velero`, `restic`, and `keycloak-db`), and access policies granting each user read-write permissions only to their respective buckets.
 
 ## Test a Bucket
 
