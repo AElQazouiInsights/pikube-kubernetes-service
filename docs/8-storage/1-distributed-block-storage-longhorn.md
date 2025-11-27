@@ -117,9 +117,14 @@ kubectl label node grapefruit-worker node.longhorn.io/create-default-disk=true
 
 Longhorn will automatically create data disks only on nodes with this label when the corresponding setting is enabled.
 
-### Step 3: Create `longhorn-values.yaml` (NVMe fast tier + NGINX Ingress)
+### Step 3: Create `longhorn-values.yaml` (NVMe fast tier + basic-auth Ingress)
 
-- Create a **`longhorn-values.yaml`** file for custom configurations:
+The recommended deployment flow on PiKube is:
+
+1. Start with a simple **basic-auth–protected** Longhorn UI (bootstrap).
+2. Once Keycloak + OAuth2‑Proxy SSO is wired, switch the Ingress to SSO.
+
+Create a **`longhorn-values.yaml`** file for the initial basic-auth setup:
 
 ```yaml
 defaultSettings:
@@ -147,9 +152,7 @@ ingress:
 
 ➜ Uses the **NVMe fast tier** on the three Orange Pi 5 Ultra workers (`/var/lib/longhorn/fast`) as the default Longhorn data path.
 
-➜ Enables and configures an **Ingress** resource for accessing the **Longhorn dashboard** through **NGINX**.
-
-➜ Configures **basic authentication** and **TLS** for the dashboard using **cert-manager**.
+➜ Enables and configures an **Ingress** resource for accessing the **Longhorn dashboard** through **NGINX**, protected by **HTTP basic authentication** and TLS via cert‑manager.
 
 ### Basic-auth secret for Longhorn via Vault + External Secrets
 
@@ -192,7 +195,65 @@ spec:
 > - The detailed pattern for managing this secret in Vault and External Secrets is described in `docs/5-networking/4-ingress-controller-nginx.md`.
 
 > [!WARNING] 🔐 SSO integration planned  
-> This initial configuration uses basic auth in front of the Longhorn UI. In the PiKube roadmap, GUI access will be unified behind **Keycloak + OAuth2-Proxy** (see `docs/7-single-sign-on/1-sso-with-keycloak-and-oauth2-proxy.md`). Once SSO is in place, the Longhorn Ingress will be updated to use OAuth2‑Proxy/Keycloak instead of static basic auth. Treat this basic‑auth ingress as a **bootstrap configuration**, not the final security model. The live cluster is already starting this migration by wiring Longhorn’s Ingress through OAuth2‑Proxy/Keycloak instead of relying solely on `basic-auth-secret`.
+> Use this basic-auth ingress as the **first step**. Once Keycloak + OAuth2‑Proxy SSO is wired and validated, migrate the Longhorn UI to SSO as described below.
+
+### Step 4: Migrate Longhorn UI to SSO (Keycloak + OAuth2‑Proxy)
+
+Once the basic-auth setup works and the SSO stack is ready, you can update the Longhorn Ingress to be protected by Keycloak + OAuth2‑Proxy instead of static basic-auth.
+
+To use the SSO flow already deployed on PiKube:
+
+1. **Ensure the SSO stack is in place (from the SSO doc)**
+   - Follow `docs/7-single-sign-on/1-sso-with-keycloak-and-oauth2-proxy.md` to:
+     - Deploy Keycloak (operator + `picluster` realm).
+     - Deploy the CloudNativePG `keycloak-db` cluster.
+     - Install OAuth2‑Proxy in the `oauth2-proxy` namespace with:
+       - `provider="keycloak-oidc"`
+       - `oidc_issuer_url="https://sso.picluster.quantfinancehub.com/realms/picluster"`
+       - `redirect_url="https://oauth2-proxy.picluster.quantfinancehub.com/oauth2/callback"`
+     - Verify the OIDC discovery document advertises the HTTPS issuer.
+
+2. **Create (or verify) the OAuth2‑Proxy client in Keycloak (realm `picluster`)**
+   - In the Keycloak admin console (`https://sso.picluster.quantfinancehub.com` → realm `picluster`):
+     - `Clients` → `Create client`:
+       - `Client type`: OpenID Connect
+       - `Client ID`: `oauth2-proxy`
+     - Capability config:
+       - `Client authentication`: ON
+       - `Standard flow`: ON
+       - `Direct access grants`: OFF
+     - Login settings:
+       - `Valid redirect URI`: `https://oauth2-proxy.picluster.quantfinancehub.com/oauth2/callback`
+
+   > The PiKube SSO document contains full screenshots and additional options (client scopes, audience mapper) if you need more detail.
+
+3. **Wire Longhorn’s Ingress through OAuth2‑Proxy**
+
+   You can either:
+   - Update `longhorn-values.yaml` (and re‑`helm upgrade`) to replace the basic-auth annotations with the SSO annotations below, **or**
+   - Patch the existing `Ingress` `longhorn-ingress` in `longhorn-system` to match these annotations.
+
+   The target Ingress (matching the live cluster) should look like:
+
+   ```yaml
+   metadata:
+     name: longhorn-ingress
+     namespace: longhorn-system
+     annotations:
+       cert-manager.io/cluster-issuer: letsencrypt-issuer
+       cert-manager.io/common-name: longhorn.picluster.quantfinancehub.com
+       nginx.ingress.kubernetes.io/auth-signin: https://oauth2-proxy.picluster.quantfinancehub.com/oauth2/start?rd=https://$host$request_uri
+       nginx.ingress.kubernetes.io/auth-url: http://oauth2-proxy.oauth2-proxy.svc.cluster.local/oauth2/auth
+       nginx.ingress.kubernetes.io/auth-response-headers: Authorization
+       nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+       nginx.ingress.kubernetes.io/service-upstream: "true"
+   ```
+
+   - With this configuration:
+     - A request to `https://longhorn.picluster.quantfinancehub.com/` is intercepted by NGINX.
+     - NGINX calls `/oauth2/auth` on OAuth2‑Proxy.
+     - If the user is not authenticated, OAuth2‑Proxy redirects to Keycloak for login and then back to Longhorn.
+     - Once logged in, Longhorn receives only authenticated traffic.
 
 - Install **`Longhorn`** in the **`longhorn-system`** namespace using **`longhorn-values.yaml`** file
 

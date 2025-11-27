@@ -273,8 +273,9 @@ pikube.io/has-nvme: true  # Only: grapefruit, lemon, clementine
 
 1. **Doc‑driven manual install**
    - Use the VitePress docs as the *source of truth* for desired behaviour.
-   - For each topic (networking, storage, SSO, monitoring, microservices, etc.), manually deploy the corresponding components to the PiKube cluster using the commands/manifests from the docs.
+   - For each topic (networking, storage, SSO, monitoring, microservices, etc.), **first install and validate manually** in the live cluster using the commands/manifests from the docs.
    - If a component is already present (e.g. Longhorn, Keycloak, MinIO, monitoring stack), validate that the docs match the actual cluster state; if they don’t, fix the cluster *or* correct the docs so they converge.
+   - This phase is deliberately manual so that every step is understood, reproducible from the docs, and debuggable without any automation “hiding” details.
 
 2. **Tight feedback loop (cluster ↔ docs ↔ .claude)**
    - Every change is first validated against the live cluster (kubectl/helm + Vault on the gateway).
@@ -297,9 +298,15 @@ pikube.io/has-nvme: true  # Only: grapefruit, lemon, clementine
    - **GitOps (Argo CD / new repo)**:
      - All Kubernetes‑level concerns expressed as manifests/Helm/Kustomize.
      - Operators (CloudNativePG, Keycloak, MinIO Operator, ESO, etc.) and platform services (Longhorn, monitoring stack, SSO, microservices) managed declaratively.
-   - The goal is that the cluster can be recreated non‑interactively from:
-     - Ansible inventory + playbooks.
-     - A clean GitOps repo that encodes the validated docs.
+     - GitOps repo structure is expected to roughly mirror the docs (e.g. apps “01-core”..“09-monitoring”), so that docs → manifests mapping is obvious.
+   - The intent is:
+     - Phase 1 – *Manual*: prove the docs are correct and complete.
+     - Phase 2 – *IaC + GitOps*: extract the working manifests/Helm values from Phase 1 into:
+       - Ansible (hosts, base infra).
+       - ArgoCD Applications (Kubernetes‑level components), fed from a new GitOps repo.
+     - The cluster should be recreatable non‑interactively from:
+       - Ansible inventory + playbooks.
+       - The GitOps repo that encodes the validated docs.
 
 5. **Phase 3 – AI‑assisted operations and continuous evolution**
    - Leverage the monitoring stack and the **AI agent** architecture described in `docs/15-ai-intelligent-operations` to:
