@@ -629,7 +629,7 @@ hubble:
       apiVersion: cilium.io/v2alpha1
       kind: CiliumLoadBalancerIPPool
       metadata:
-        name: picluster-pool
+        name: pikube-pool
         namespace: kube-system
       spec:
         blocks:

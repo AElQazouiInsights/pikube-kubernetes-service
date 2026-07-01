@@ -786,9 +786,9 @@ metadata:
     # Remove MetalLB annotations
     # metallb.universe.tf/allow-shared-ip: "istio-gateway"
     # metallb.universe.tf/address-pool: default
-    
+
     # Add Cilium LB-IPAM annotations
-    io.cilium/lb-ipam-ips: "10.0.0.100,10.0.0.101"
+    io.cilium/lb-ipam-ips: "10.0.0.111,10.0.0.112"
     external-dns.alpha.kubernetes.io/hostname: "*.picluster.quantfinancehub.com"
 spec:
   type: LoadBalancer

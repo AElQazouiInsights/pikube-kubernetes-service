@@ -78,12 +78,20 @@ Minio acts as the long-term storage solution for Tempo’s chunks and indexes.
 
 The Tempo Helm chart can install Minio as a subchart, but that’s disabled here since the cluster already has:
 
-- An **in-cluster HA MinIO Tenant** (`minio-ha`) on Longhorn, exposed as `https://s3.picluster.quantfinancehub.com`.  
+- An **in-cluster HA MinIO Tenant** (`minio-ha`) on Longhorn, exposed as `https://s3.picluster.quantfinancehub.com`.
 - An **external MinIO** on `blueberry-master` used for backup/DR.
 
 The Tempo S3 bucket, policy, and user for MinIO are set up as part of the HA MinIO installation. See [**`Minio S3 Object Storage Service`**](../8-storage/2-s3-object-storage-service-minio.md) for details.
 
 :::
+
+> [!IMPORTANT]
+> **Choose the correct MinIO endpoint for Tempo and Loki**
+>
+> - Use the **in-cluster HA MinIO Tenant** endpoint `https://s3.picluster.quantfinancehub.com` for all **runtime** S3 backends (`storage.s3.endpoint` in Loki and Tempo values). Do **not** append `:9091` here; traffic goes through the NGINX Ingress on port 443.
+> - Reserve the **external MinIO** endpoint `https://s3.quantfinancehub.com:9091` for **backup/DR use cases** (Longhorn, Velero, Restic, or replication from the HA Tenant), not as the primary endpoint for Loki/Tempo.
+>
+> If you adapt these docs to another cluster, always confirm which endpoint front-ends your in-cluster MinIO Tenant and point Loki/Tempo to that address, not to the external backup instance.
 
 ### MinIO HA Tenant buckets and users for Tempo
 
@@ -258,7 +266,7 @@ storage:
     backend: s3
     s3:
       bucket: k3s-tempo
-      endpoint: s3.picluster.quantfinancehub.com:9091
+      endpoint: s3.picluster.quantfinancehub.com
       region: eu-west-1
       access_key: ${MINIO_ACCESS_KEY_ID}
       secret_key: ${MINIO_SECRET_ACCESS_KEY}
@@ -443,7 +451,7 @@ controller:
   config:
     # Enable OpenTelemetry
     enable-opentelemetry: "true"
-    otlp-collector-host: tracing-tempo-distributor.tracing.svc.cluster.local
+    otlp-collector-host: tempo-distributor.tracing.svc.cluster.local
     otlp-service-name: nginx-internal
     # Configure access log
     access-log-path: "/data/access.log"
@@ -469,7 +477,7 @@ grafana:
       type: tempo
       uid: tempo
       access: proxy
-      url: http://tempo-query-frontend.tracing.svc.cluster.local:3100
+      url: http://tempo-query-frontend.tracing.svc.cluster.local:3200
 ```
 
 ## Loki and Tempo Integration
@@ -494,7 +502,7 @@ grafana:
     uid: tempo
     type: tempo
     access: proxy
-    url: http://tempo-query-frontend.tracing.svc.cluster.local:3100
+    url: http://tempo-query-frontend.tracing.svc.cluster.local:3200
 ```
 
 This enables logs in Grafana to have a link to corresponding Tempo traces.

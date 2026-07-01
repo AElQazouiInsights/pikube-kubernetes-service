@@ -73,10 +73,10 @@ In bare-metal Kubernetes environments, LoadBalancer services remain in "pending"
 
 ### MetalLB Advantages
 
-🚀 **Production Ready**: Enterprise-grade load balancing for bare-metal clusters  
-🌐 **Protocol Support**: Layer 2 and BGP networking modes  
-🔧 **Flexibility**: Advanced configuration options and IP pool management  
-📈 **Scalability**: Handles complex routing and multiple IP ranges  
+🚀 **Production Ready**: Enterprise-grade load balancing for bare-metal clusters
+🌐 **Protocol Support**: Layer 2 and BGP networking modes
+🔧 **Flexibility**: Advanced configuration options and IP pool management
+📈 **Scalability**: Handles complex routing and multiple IP ranges
 🛡️ **Reliability**: High availability with leader election mechanisms
 
 ## MetalLB Architecture
@@ -101,42 +101,42 @@ MetalLB consists of two primary components working together:
 graph TB
     subgraph "🏢 MetalLB Architecture"
         Controller["🎛️ Controller<br/>📋 IP Pool Management<br/>🎯 Service Assignment"]
-        
+
         subgraph "📢 Speaker DaemonSet"
             Speaker1["📢 Speaker<br/>🖥️ Node 1"]
             Speaker2["📢 Speaker<br/>🖥️ Node 2"]
             Speaker3["📢 Speaker<br/>🖥️ Node 3"]
         end
     end
-    
+
     subgraph "🌐 Network Modes"
         L2["🔗 Layer 2 Mode<br/>📡 ARP/NDP Advertisement<br/>🎯 Leader Election"]
         BGP["🌍 BGP Mode<br/>🔀 Dynamic Routing<br/>⚖️ Load Distribution"]
     end
-    
+
     subgraph "🎯 LoadBalancer Services"
-        Service1["⚖️ Service A<br/>📍 10.0.0.100"]
-        Service2["⚖️ Service B<br/>📍 10.0.0.101"]
-        Service3["⚖️ Service C<br/>📍 10.0.0.102"]
+        Service1["⚖️ Ingress NGINX<br/>📍 10.0.0.100"]
+        Service2["⚖️ Fluentd Aggregator<br/>📍 10.0.0.102"]
+        Service3["⚖️ Dynamic Service<br/>📍 10.0.0.111+"]
     end
-    
+
     Controller --> Speaker1
     Controller --> Speaker2
     Controller --> Speaker3
-    
+
     Speaker1 -.-> L2
     Speaker2 -.-> BGP
     Speaker3 -.-> L2
-    
+
     L2 --> Service1
     BGP --> Service2
     L2 --> Service3
-    
+
     classDef controllerStyle fill:#667eea,stroke:#764ba2,stroke-width:3px,color:#fff
     classDef speakerStyle fill:#f093fb,stroke:#f5576c,stroke-width:3px,color:#fff
     classDef modeStyle fill:#4facfe,stroke:#00f2fe,stroke-width:3px,color:#fff
     classDef serviceStyle fill:#43e97b,stroke:#38f9d7,stroke-width:3px,color:#fff
-    
+
     class Controller controllerStyle
     class Speaker1,Speaker2,Speaker3 speakerStyle
     class L2,BGP modeStyle
@@ -200,27 +200,44 @@ metallb-controller-xxx        1/1     Running   0          2m
 metallb-speaker-xxx           1/1     Running   0          2m
 ```
 
-## Configure IP Address Pool and Advertisement
+## Configure IP Address Pools and Advertisement
+
+PiKube uses **two IP pools**:
+
+- A **static pool** for critical services that must keep their IPs across cluster rebuilds (Ingress, Fluentd, etc.).
+- A **dynamic pool** for all other LoadBalancer services.
 
 Create the MetalLB configuration file:
 
 ```yaml
 # metal-lb-config.yaml
 ---
-# MetalLB Address Pool Configuration
-# This defines a range of IP addresses that MetalLB controls and can assign
+# Static IP pool for critical services (Ingress, Fluentd, …)
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
-  name: picluster-pool
+  name: pikube-static
   namespace: metal-lb
 spec:
   addresses:
-  - 10.0.0.100-10.0.0.200
+    - 10.0.0.100-10.0.0.110
+  autoAssign: false
+
+---
+# Dynamic IP pool for general LoadBalancer services
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: pikube-pool
+  namespace: metal-lb
+spec:
+  addresses:
+    - 10.0.0.111-10.0.0.200
+  autoAssign: true
 
 ---
 # Layer 2 Advertisement Configuration
-# This configures MetalLB to use Layer 2 mode to advertise IP addresses
+# Advertise both static and dynamic pools
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
 metadata:
@@ -228,7 +245,8 @@ metadata:
   namespace: metal-lb
 spec:
   ipAddressPools:
-  - picluster-pool
+    - pikube-static
+    - pikube-pool
 ```
 
 ### Apply the Configuration
@@ -237,7 +255,11 @@ spec:
 kubectl apply -f metal-lb-config.yaml
 ```
 
-After applying the configuration, MetalLB will assign external IP addresses from the defined pool to LoadBalancer services.
+After applying the configuration:
+
+- The **Ingress NGINX controller** is pinned to `10.0.0.100` (from `pikube-static`).
+- The **Fluentd external forward endpoint** is pinned to `10.0.0.102` (from `pikube-static`).
+- Any other `LoadBalancer` services without a fixed `loadBalancerIP` will be dynamically allocated from `pikube-pool` (`10.0.0.111-10.0.0.200`).
 
 ## Verify LoadBalancer Services
 
@@ -247,7 +269,7 @@ Check that LoadBalancer services receive external IPs:
 kubectl get services --all-namespaces
 ```
 
-You should see services like NGINX Ingress Controller and other LoadBalancer services with external IPs assigned from the 10.0.0.100-10.0.0.200 range.
+You should see services like the NGINX Ingress Controller and Fluentd external endpoint with **fixed IPs** from `pikube-static`, and any additional `LoadBalancer` services with IPs automatically assigned from the `pikube-pool` range (`10.0.0.111-10.0.0.200`).
 
 > [!TIP]
 > **Advanced Configuration**
@@ -266,7 +288,7 @@ You should see services like NGINX Ingress Controller and other LoadBalancer ser
 > spec:
 >   addresses:
 >   - 10.0.0.100-10.0.0.150
-> 
+>
 > ---
 > apiVersion: metallb.io/v1beta1
 > kind: IPAddressPool
@@ -291,7 +313,7 @@ You should see services like NGINX Ingress Controller and other LoadBalancer ser
 >   myASN: 64512
 >   peerASN: 64512
 >   peerAddress: 10.0.0.1
-> 
+>
 > ---
 > apiVersion: metallb.io/v1beta1
 > kind: BGPAdvertisement
