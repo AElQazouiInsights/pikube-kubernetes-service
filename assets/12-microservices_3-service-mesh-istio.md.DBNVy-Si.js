@@ -495,9 +495,9 @@ import{_ as e,C as k,c as r,o as i,j as a,a0 as n,b as d,a as l,t as E,w as t,G 
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">    # Remove MetalLB annotations</span></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">    # metallb.universe.tf/allow-shared-ip: &quot;istio-gateway&quot;</span></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">    # metallb.universe.tf/address-pool: default</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">    </span></span>
+<span class="line"></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">    # Add Cilium LB-IPAM annotations</span></span>
-<span class="line"><span style="--shiki-light:#22863A;--shiki-dark:#85E89D;">    io.cilium/lb-ipam-ips</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">&quot;10.0.0.100,10.0.0.101&quot;</span></span>
+<span class="line"><span style="--shiki-light:#22863A;--shiki-dark:#85E89D;">    io.cilium/lb-ipam-ips</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">&quot;10.0.0.111,10.0.0.112&quot;</span></span>
 <span class="line"><span style="--shiki-light:#22863A;--shiki-dark:#85E89D;">    external-dns.alpha.kubernetes.io/hostname</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">&quot;*.picluster.quantfinancehub.com&quot;</span></span>
 <span class="line"><span style="--shiki-light:#22863A;--shiki-dark:#85E89D;">spec</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">:</span></span>
 <span class="line"><span style="--shiki-light:#22863A;--shiki-dark:#85E89D;">  type</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF;">LoadBalancer</span></span>
