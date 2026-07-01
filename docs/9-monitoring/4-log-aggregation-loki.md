@@ -293,7 +293,8 @@ loki:
       ruler: k3s-loki
     type: s3
     s3:
-      endpoint: s3.picluster.quantfinancehub.com:9091
+      # In-cluster HA MinIO Tenant exposed via NGINX Ingress
+      endpoint: s3.picluster.quantfinancehub.com
       region: eu-west-1
       secretAccessKey: ${MINIO_SECRET_ACCESS_KEY}
       accessKeyId: ${MINIO_ACCESS_KEY_ID}
@@ -366,6 +367,18 @@ loki:
   test:
     enabled: false
 ```
+
+> [!IMPORTANT]
+> **Loki with HA MinIO via NGINX Ingress**
+>
+> - Ensure the MinIO API Ingress (`minio-api-ingress` in namespace `minio`) has:
+>   - `nginx.ingress.kubernetes.io/proxy-body-size: "100m"` (or higher) so large Loki chunks are not rejected with `413 Request Entity Too Large`.
+> - All Loki components that access S3 should run with:
+>   - `-config.expand-env=true` in their args, and
+>   - `MINIO_ACCESS_KEY_ID` / `MINIO_SECRET_ACCESS_KEY` env vars sourced from `loki-minio-secret` (as shown for `write`, `read`, and `backend` in `loki-values.yaml`).
+> - If Loki logs show `InvalidAccessKeyId` against `s3.picluster.quantfinancehub.com`, double‑check that:
+>   - The `loki` MinIO user and `k3s-loki` bucket exist with the correct policy, and
+>   - Vault `secret/minio/loki` contains matching `user` and `key` values, which are synced into the `loki-minio-secret` by External Secrets Operator.
 
 ## Configuring Grafana with Loki as a Data Source
 

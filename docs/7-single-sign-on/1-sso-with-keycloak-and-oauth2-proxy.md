@@ -99,7 +99,7 @@ The Keycloak Operator does **not** manage a database. You must provision Postgre
 
 On PiKube the recommended pattern is to run a small **CloudNativePG** cluster dedicated to Keycloak in the `keycloak` namespace, with backups stored on the external MinIO server.
 
-1. **Create MinIO credentials in Vault (on gateway)**  
+1. **Create MinIO credentials in Vault (on gateway)**
    On the `gateway` node (where Vault runs):
 
    ```bash
@@ -112,7 +112,7 @@ On PiKube the recommended pattern is to run a small **CloudNativePG** cluster de
      key="<KEYCLOAK_DB_S3_SECRET_KEY>"
    ```
 
-2. **Project these credentials into Kubernetes via ExternalSecret**  
+2. **Project these credentials into Kubernetes via ExternalSecret**
    In the `keycloak` namespace, create an `ExternalSecret` that materializes `keycloak-minio-secret`:
 
    ```yaml
@@ -140,7 +140,7 @@ On PiKube the recommended pattern is to run a small **CloudNativePG** cluster de
            property: key
    ```
 
-3. **Create the CloudNativePG `keycloak-db` cluster**  
+3. **Create the CloudNativePG `keycloak-db` cluster**
    This example matches the current PiKube cluster and wires backups to MinIO via `keycloak-minio-secret`:
 
    ```yaml
@@ -185,7 +185,7 @@ In PiKube, credentials should live in **Vault** and be synced into Kubernetes us
 
 For Keycloak we need at least:
 
-- Admin user password (for the initial bootstrap admin).  
+- Admin user password (for the initial bootstrap admin).
 - Database username and password for the `keycloak` database.
 
 Example ESO resources (simplified):
@@ -212,7 +212,7 @@ spec:
     - secretKey: password
       remoteRef:
         key: secret/keycloak/admin
-        property: admin-password
+        property: password
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -265,8 +265,8 @@ Verify the operator pod in the `keycloak` namespace is `Running` before continui
 
 Create a `Keycloak` custom resource that:
 
-- Points to the external PostgreSQL (`keycloak-db-rw` service) managed by CloudNativePG.  
-- Uses secrets projected by ESO for DB credentials and bootstrap admin.  
+- Points to the external PostgreSQL (`keycloak-db-rw` service) managed by CloudNativePG.
+- Uses secrets projected by ESO for DB credentials and bootstrap admin.
 - Relies on a separate CloudNativePG `Cluster` (`keycloak-db`) with S3 backups configured via the `keycloak-minio-secret` created by an ExternalSecret (see the Databases and Vault/External Secrets docs for the full `Cluster` and `ExternalSecret` manifests).
 
 Example (aligned with the current cluster):

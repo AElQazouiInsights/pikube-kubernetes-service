@@ -20,29 +20,29 @@ last_modified_at: "2025-11-20"
 
 PiKube uses **two complementary MinIO deployments**, each with a distinct role in the overall storage and backup strategy:
 
-- **External MinIO (blueberry-master, `s3.quantfinancehub.com:9091`)**  
-  - Runs directly on the `blueberry-master` bare‑metal node.  
-  - Holds **cluster‑critical backups**: Longhorn, Velero, Restic, and other infrastructure state.  
+- **External MinIO (blueberry-master, `s3.quantfinancehub.com:9091`)**
+  - Runs directly on the `blueberry-master` bare‑metal node.
+  - Holds **cluster‑critical backups**: Longhorn, Velero, Restic, and other infrastructure state.
   - Lives *outside* Kubernetes so it remains available even if the cluster is down or Longhorn is broken.
 
-- **In-cluster HA MinIO (this document)**  
-  - Runs **inside Kubernetes** as a **MinIO Tenant** managed by the **MinIO Operator**.  
-  - Stores **application and observability data**: Loki logs, Tempo traces, and future app buckets.  
+- **In-cluster HA MinIO (this document)**
+  - Runs **inside Kubernetes** as a **MinIO Tenant** managed by the **MinIO Operator**.
+  - Stores **application and observability data**: Loki logs, Tempo traces, and future app buckets.
   - Sits on top of **Longhorn volumes on NVMe nodes**, providing high availability inside the cluster.
 
 Together they implement this strategy:
 
-> **Runtime data path:**  
-> Applications and observability components write to **in-cluster MinIO on Longhorn (NVMe)** for fast, resilient storage.  
-> 
-> **Backup / DR path:**  
+> **Runtime data path:**
+> Applications and observability components write to **in-cluster MinIO on Longhorn (NVMe)** for fast, resilient storage.
+>
+> **Backup / DR path:**
 > The in-cluster MinIO buckets are **backed up or replicated to the external MinIO** on `blueberry-master`, so you can rebuild the cluster and recover data even if Kubernetes or Longhorn are temporarily unavailable.
 
 This document focuses on the **in-cluster HA MinIO** deployment. It provides:
 
-- A clear architecture overview.  
-- Step-by-step installation using the MinIO Operator and a single Tenant.  
-- Verification steps to confirm availability and metrics.  
+- A clear architecture overview.
+- Step-by-step installation using the MinIO Operator and a single Tenant.
+- Verification steps to confirm availability and metrics.
 - A recommended pattern to wire the HA MinIO Tenant to the external MinIO instance on `blueberry-master`.
 
 ---
@@ -51,7 +51,7 @@ This document focuses on the **in-cluster HA MinIO** deployment. It provides:
 
 ### 1.1 Roles of the two MinIO instances
 
-- **External MinIO (blueberry‑master)** – documented in  
+- **External MinIO (blueberry‑master)** – documented in
   `docs/3-external-services/1-s3-backup-backend-minio-setup.md`
 
   - Endpoint: `https://s3.quantfinancehub.com:9091`
@@ -77,7 +77,7 @@ This document focuses on the **in-cluster HA MinIO** deployment. It provides:
 
 The target state is:
 
-- Loki, Tempo, and other S3‑consuming apps use the **in-cluster Tenant endpoint** (`s3.picluster.quantfinancehub.com`).  
+- Loki, Tempo, and other S3‑consuming apps use the **in-cluster Tenant endpoint** (`s3.picluster.quantfinancehub.com`).
 - The in-cluster buckets are **replicated or backed up to external MinIO** (`PiKubeS3Vault`) as part of the backup strategy.
 
 ### 1.2 High‑level design of the HA Tenant
@@ -87,15 +87,15 @@ The HA MinIO Tenant is a **distributed MinIO cluster**:
 - **3 MinIO servers (pods)**, one scheduled on each NVMe worker:
   - `lemon-worker`, `clementine-worker`, `grapefruit-worker`
 - Each server uses **2 Longhorn volumes** of `10Gi` each:
-  - Total of 6 Longhorn PVCs  
+  - Total of 6 Longhorn PVCs
   - All PVCs use `storageClassName: longhorn`
-- MinIO Tenant is configured for **distributed mode** (erasure‑coded, highly available).  
+- MinIO Tenant is configured for **distributed mode** (erasure‑coded, highly available).
 - Pods are scheduled using:
-  - **Node affinity** for NVMe nodes (e.g. `pikube.io/has-nvme=true`)  
+  - **Node affinity** for NVMe nodes (e.g. `pikube.io/has-nvme=true`)
   - Optionally **Volcano** as `schedulerName` for gang scheduling.
 - The Tenant is exposed via:
-  - **NGINX Ingress** for API: `s3.picluster.quantfinancehub.com`  
-  - **NGINX Ingress** for console: `minio.picluster.quantfinancehub.com`  
+  - **NGINX Ingress** for API: `s3.picluster.quantfinancehub.com`
+  - **NGINX Ingress** for console: `minio.picluster.quantfinancehub.com`
   - TLS issued by **cert-manager** with `ClusterIssuer letsencrypt-issuer`
 - Prometheus scrapes MinIO metrics via a **ServiceMonitor** and surfaces them in Grafana.
 
@@ -179,10 +179,10 @@ Before deploying the HA MinIO Tenant, ensure the following are in place:
 
 2. **Sync root credentials from Vault using External Secrets**
 
-   PiKube already uses **External Secrets Operator** (`external-secrets` namespace) with a `ClusterSecretStore` named `vault-backend` pointing at the Vault instance on the gateway (`10.0.0.1`).  
+   PiKube already uses **External Secrets Operator** (`external-secrets` namespace) with a `ClusterSecretStore` named `vault-backend` pointing at the Vault instance on the gateway (`10.0.0.1`).
    External MinIO credentials are stored in Vault under:
 
-   - `secret/minio/root` → fields `user`, `key`, and `config_env`  
+   - `secret/minio/root` → fields `user`, `key`, and `config_env`
 
    The `config_env` field contains exported environment variables such as:
 
@@ -363,9 +363,9 @@ kubectl -n minio get tenant minio-ha -o yaml | grep -i phase
 You should see 3 MinIO pods `Running` and `phase: Ready`.
 
 > [!NOTE] 🧮 About Volcano
-> 
+>
 > MinIO HA does **not** require the Volcano scheduler to function. The Tenant is scheduled by the default Kubernetes scheduler and constrained to NVMe nodes using `nodeSelector`.
-> 
+>
 > If you want to gang-schedule MinIO along with other storage-heavy workloads, you can add `schedulerName: volcano` and a `PodGroup` similar to the example in `platform/storage/36-minio`, but this is optional and not required for a reliable HA MinIO deployment on PiKube.
 
 ---
@@ -382,6 +382,8 @@ metadata:
   namespace: minio
   annotations:
     nginx.ingress.kubernetes.io/service-upstream: "true"
+    # Allow large S3 requests from Loki/Tempo (log/trace chunks)
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
     cert-manager.io/cluster-issuer: letsencrypt-issuer
     cert-manager.io/common-name: s3.picluster.quantfinancehub.com
     # Let ExternalDNS manage internal DNS records in Bind9
@@ -441,7 +443,7 @@ kubectl apply -f minio-ingress-ha.yaml
 
 Check that `minio-tls` and `minio-console-tls` Certificates are `Ready`, then test:
 
-- `https://s3.picluster.quantfinancehub.com`  
+- `https://s3.picluster.quantfinancehub.com`
 - `https://minio.picluster.quantfinancehub.com`
 
 ---
@@ -490,7 +492,58 @@ The Tenant created `loki` and `tempo` users, but policies still need to be attac
 
 ## 8. Step 6 – Enable Prometheus monitoring for HA MinIO
 
-Create `prometheus-minio-ha-servicemonitor.yaml`:
+1) **Generate a Prometheus bearer token from MinIO**
+
+Run this from any node with `mc` and cluster DNS access (or start a short‑lived pod, e.g. `kubectl -n minio run -it --rm --image=quay.io/minio/mc mc-gen --command -- /bin/sh`):
+
+```bash
+# Point mc at the in-cluster Tenant (ClusterIP on port 80)
+mc alias set ha http://minio.minio.svc.cluster.local:80 root supers1cret0 --api s3v4
+
+# Generate a Prometheus token for scraping
+mc admin prometheus generate ha
+```
+
+Copy the `bearer_token` value that is printed.
+
+2) **Store the token in Vault and sync it with External Secrets**
+
+- Put the token into Vault (path `secret/minio/prometheus`, field `bearer_token`). Example:
+
+```bash
+vault kv put secret/minio/prometheus bearer_token="<PASTE_BEARER_TOKEN>"
+```
+
+- Create an ExternalSecret that mirrors this Vault entry into the Kubernetes Secret consumed by Prometheus:
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: minio-ha-prometheus-token
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: minio-ha-monitor-token
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: secret/minio/prometheus
+        property: bearer_token
+```
+
+Apply it:
+
+```bash
+kubectl apply -f minio-ha-prometheus-token.yaml
+```
+
+3) **Create `prometheus-minio-ha-servicemonitor.yaml`:**
 
 ```yaml
 apiVersion: monitoring.coreos.com/v1
@@ -524,7 +577,11 @@ Apply:
 kubectl apply -f prometheus-minio-ha-servicemonitor.yaml
 ```
 
-Verify target status in Prometheus and import a MinIO Grafana dashboard (e.g. ID `13502`) to visualize metrics.
+4) **Verify and visualize**
+
+- In Prometheus UI → `Status > Targets`, the job `serviceMonitor/monitoring/minio-ha-servicemonitor/0` should be **UP** (no 403s).
+- Query e.g. `minio_cluster_usage_total_bytes` to confirm samples exist.
+- In Grafana, import dashboard ID **13502** and choose the **Prometheus** datasource; data should appear within ~1 minute (30s scrape + panel refresh).
 
 ---
 
@@ -683,7 +740,7 @@ Once HA MinIO is installed and tested:
   Tempo’s Helm values follow the same pattern, using `tempo-minio-secret` as shown in `docs/9-monitoring/8-distributed-tracing-tempo.md`.
 
 - Confirm:
-  - Data appears in HA Tenant buckets.  
+  - Data appears in HA Tenant buckets.
   - Replication or mirror jobs are moving that data to external MinIO.
 
 Over time, the Loki and Tempo docs under `docs/12-microservices/` will be updated so this HA Tenant becomes their **default S3 backend**, with external MinIO as the **backup anchor**.

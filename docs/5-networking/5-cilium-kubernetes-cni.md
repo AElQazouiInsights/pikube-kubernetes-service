@@ -273,7 +273,7 @@ operator:
     annotations:
       grafana_folder: Cilium
 
-# Agent Monitoring  
+# Agent Monitoring
 prometheus:
   enabled: true
   serviceMonitor:
@@ -298,7 +298,7 @@ dashboards:
 # Hubble Observability Platform
 hubble:
   enabled: true
-  
+
   # Metrics Collection
   metrics:
     enabled:
@@ -316,7 +316,7 @@ hubble:
       enabled: true
       annotations:
         grafana_folder: Cilium
-  
+
   # Hubble Relay
   relay:
     enabled: true
@@ -325,7 +325,7 @@ hubble:
       enabled: true
       serviceMonitor:
         enabled: true
-  
+
   # Hubble UI
   ui:
     enabled: true
@@ -355,11 +355,11 @@ Create IP address pools and announcement policies:
 apiVersion: "cilium.io/v2alpha1"
 kind: CiliumLoadBalancerIPPool
 metadata:
-  name: "picluster-pool"
+  name: "pikube-pool"
   namespace: kube-system
 spec:
   blocks:
-    - start: "10.0.0.100"
+    - start: "10.0.0.111"
       stop: "10.0.0.200"
 
 ---
@@ -415,76 +415,76 @@ graph TB
         subgraph CP ["⚙️ Control Plane Layer"]
             CiliumOp["🎛️ Cilium Operator<br/>📊 IPAM Coordination<br/>🛡️ Policy Enforcement<br/>🔄 Configuration Sync"]
         end
-        
+
         subgraph WN ["🌐 Distributed Node Network"]
             subgraph N1 ["📡 Node Alpha"]
                 Agent1["🤖 Cilium Agent<br/>⚡ eBPF Runtime<br/>🔄 L2 Announcements<br/>🛡️ Network Security"]
                 Pod1["🐳 Application Pod<br/>📍 IP: 10.42.1.10<br/>🏷️ Label: frontend"]
             end
-            
+
             subgraph N2 ["📡 Node Beta"]
                 Agent2["🤖 Cilium Agent<br/>⚡ eBPF Runtime<br/>🔄 L2 Announcements<br/>🛡️ Network Security"]
                 Pod2["🐳 Application Pod<br/>📍 IP: 10.42.2.15<br/>🏷️ Label: backend"]
             end
-            
+
             subgraph N3 ["📡 Node Gamma"]
                 Agent3["🤖 Cilium Agent<br/>⚡ eBPF Runtime<br/>🔄 L2 Announcements<br/>🛡️ Network Security"]
                 Pod3["🗃️ Database Pod<br/>📍 IP: 10.42.3.20<br/>🏷️ Label: database"]
             end
         end
-        
+
         subgraph OBS ["📈 Observability Platform"]
             Hubble["🔭 Hubble Core<br/>📊 Flow Collection<br/>🔍 Traffic Analysis<br/>📋 Metrics Export"]
             HubbleUI["🖥️ Hubble Dashboard<br/>📈 Visual Network Maps<br/>🎯 Real-time Monitoring<br/>🔍 Flow Inspection"]
         end
     end
-    
+
     subgraph EXT ["🌍 External Infrastructure"]
         LB["⚖️ Load Balancer Pool<br/>📍 IP Range: 10.0.0.100-200<br/>🔄 L2 Advertisement<br/>🎯 Traffic Distribution"]
         Client["💻 External Client<br/>🌐 Internet Traffic<br/>📡 Service Discovery"]
         BGP["🔗 BGP Router<br/>📡 Network Backbone<br/>🛤️ Route Advertisement"]
     end
-    
+
     %% Control relationships
     CiliumOp -->|"⚙️ Configuration"| Agent1
     CiliumOp -->|"⚙️ Configuration"| Agent2
     CiliumOp -->|"⚙️ Configuration"| Agent3
-    
+
     %% Pod relationships
     Agent1 -.->|"🛡️ Security"| Pod1
     Agent2 -.->|"🛡️ Security"| Pod2
     Agent3 -.->|"🛡️ Security"| Pod3
-    
+
     %% Inter-node communication
     Agent1 <-->|"⚡ eBPF Tunnel"| Agent2
     Agent2 <-->|"⚡ eBPF Tunnel"| Agent3
     Agent1 <-->|"⚡ eBPF Tunnel"| Agent3
-    
+
     %% Pod communication paths
     Pod1 <-.->|"🔄 Service Mesh"| Pod2
     Pod2 <-.->|"🗃️ Data Access"| Pod3
-    
+
     %% Observability flows
     Agent1 -->|"📊 Telemetry"| Hubble
     Agent2 -->|"📊 Telemetry"| Hubble
     Agent3 -->|"📊 Telemetry"| Hubble
     Hubble -->|"📈 Visualization"| HubbleUI
-    
+
     %% Load balancing
     Agent1 -->|"🔄 Service Routing"| LB
     Agent2 -->|"🔄 Service Routing"| LB
     Agent3 -->|"🔄 Service Routing"| LB
-    
+
     %% External connectivity
     Client -->|"🌐 HTTP/HTTPS"| LB
     LB -->|"🎯 Backend Selection"| Pod1
     LB -->|"🎯 Backend Selection"| Pod2
-    
+
     %% BGP integration
     Agent1 -.->|"📡 Route Ads"| BGP
     Agent2 -.->|"📡 Route Ads"| BGP
     Agent3 -.->|"📡 Route Ads"| BGP
-    
+
     %% Modern styling with vibrant colors
     classDef controlPlane fill:#667eea,stroke:#4c51bf,stroke-width:3px,color:#ffffff
     classDef agent fill:#f093fb,stroke:#e53e3e,stroke-width:3px,color:#ffffff
@@ -493,7 +493,7 @@ graph TB
     classDef observability fill:#43e97b,stroke:#10b981,stroke-width:3px,color:#ffffff
     classDef external fill:#fa709a,stroke:#f59e0b,stroke-width:3px,color:#ffffff
     classDef infrastructure fill:#1e293b,stroke:#475569,stroke-width:3px,color:#ffffff
-    
+
     class CiliumOp controlPlane
     class Agent1,Agent2,Agent3 agent
     class Pod1,Pod2 pod
@@ -516,7 +516,7 @@ graph TB
 
 **Cilium Core Components** - Deployed during bootstrap phase:
 
-- ✅ **Cilium CNI** - Basic networking and eBPF dataplane  
+- ✅ **Cilium CNI** - Basic networking and eBPF dataplane
 - ✅ **Cilium Operator** - IPAM coordination and policy enforcement
 - ✅ **Load Balancer IP Pools** - CiliumLoadBalancerIPPool resources
 - ✅ **L2 Announcement Policies** - CiliumL2AnnouncementPolicy resources
@@ -710,7 +710,7 @@ hostFirewall:
 # Hubble configuration (ENHANCED - main addition)
 hubble:
   enabled: true
-  
+
   # Metrics collection
   metrics:
     enabled:
@@ -728,7 +728,7 @@ hubble:
       enabled: true
       annotations:
         grafana_folder: Cilium
-  
+
   # Hubble Relay (ENHANCED)
   relay:
     enabled: true
@@ -737,7 +737,7 @@ hubble:
       enabled: true
       serviceMonitor:
         enabled: true
-  
+
   # Hubble UI (ENHANCED)
   ui:
     enabled: true
@@ -836,7 +836,7 @@ kubectl -n kube-system exec ds/cilium -- cilium service list
 # Cilium agent logs
 kubectl -n kube-system logs ds/cilium
 
-# Operator logs  
+# Operator logs
 kubectl -n kube-system logs deployment/cilium-operator
 
 # eBPF program status
@@ -855,7 +855,7 @@ When using Cilium, standard K3s uninstall scripts require additional cleanup:
 ```bash
 # Remove Cilium interfaces before K3s uninstall
 ip link delete cilium_host
-ip link delete cilium_net  
+ip link delete cilium_net
 ip link delete cilium_vxlan
 
 # Clean iptables rules
@@ -874,7 +874,7 @@ rm -rf /etc/cni/net.d
 Cilium provides significant performance improvements over traditional networking:
 
 - **🚀 40% better throughput** compared to iptables-based solutions
-- **⚡ 50% lower latency** for service load balancing  
+- **⚡ 50% lower latency** for service load balancing
 - **📈 Reduced CPU overhead** through kernel-bypass networking
 - **🔧 Simplified troubleshooting** with integrated observability
 
@@ -896,7 +896,7 @@ graph TB
             Bootstrap["📋 Platform Bootstrap<br/>🚀 CNI Deployment<br/>🔄 GitOps Integration<br/>📊 Monitoring Setup"]
             Reset["📋 Environment Reset<br/>🧹 Cleanup Operations<br/>🔄 State Restoration<br/>⚡ Quick Recovery"]
         end
-        
+
         subgraph RL ["🎯 Component Roles"]
             Prerequisites["🔧 System Prerequisites<br/>📦 Package Management<br/>🔐 Security Setup<br/>🌐 Network Config"]
             Master["🔧 Control Plane<br/>🎛️ K3s Server Setup<br/>📋 Cluster Initialization<br/>🔐 Certificate Management"]
@@ -904,7 +904,7 @@ graph TB
             BootstrapRole["🔧 Platform Bootstrap<br/>🌐 CNI Integration<br/>🔄 GitOps Platform<br/>📊 Observability"]
             ResetRole["🔧 Recovery Operations<br/>🧹 State Cleanup<br/>🔄 Environment Reset<br/>⚡ Fast Restoration"]
         end
-        
+
         subgraph TL ["📝 Execution Tasks"]
             Dependencies["📄 Dependency Setup<br/>🏗️ Helm Repository Config<br/>📦 Tool Installation<br/>🔐 Authentication"]
             Namespaces["📄 Namespace Creation<br/>🏷️ Label Management<br/>🔐 RBAC Setup<br/>📋 Resource Quotas"]
@@ -913,7 +913,7 @@ graph TB
             Validation["📄 Health Validation<br/>✅ Connectivity Tests<br/>📊 Status Verification<br/>🔍 Diagnostic Checks"]
             Cleanup["📄 Environment Cleanup<br/>🧹 Temporary File Removal<br/>🔄 State Normalization<br/>📋 Final Verification"]
         end
-        
+
         subgraph CD ["🚀 Infrastructure Components"]
             CiliumDeploy["🌐 Cilium CNI Platform<br/>⚡ eBPF Network Engine<br/>🛡️ Security Policies<br/>📊 Observability"]
             CoreDNS["🔍 DNS Resolution<br/>🎯 Service Discovery<br/>🔄 High Availability<br/>⚡ Performance Tuning"]
@@ -921,15 +921,15 @@ graph TB
             PromCRDs["📊 Monitoring Foundation<br/>📈 Custom Resources<br/>🔍 Service Discovery<br/>⚙️ Operator Support"]
         end
     end
-    
+
     %% Orchestration flow
     Setup -->|"🔧 Infrastructure"| Prerequisites
     Setup -->|"🎛️ Control Plane"| Master
     Setup -->|"🤖 Worker Pool"| Worker
-    
+
     Bootstrap -->|"🚀 Platform"| BootstrapRole
     Reset -->|"🧹 Recovery"| ResetRole
-    
+
     %% Task execution flow
     BootstrapRole -->|"📦 Tools"| Dependencies
     Dependencies -->|"🏗️ Structure"| Namespaces
@@ -937,20 +937,20 @@ graph TB
     Helmfile -->|"🔄 Configure"| GitOps
     GitOps -->|"✅ Verify"| Validation
     Validation -->|"🧹 Finalize"| Cleanup
-    
+
     %% Component deployment
     Helmfile -->|"📊 Foundation"| PromCRDs
     Helmfile -->|"🌐 Networking"| CiliumDeploy
     Helmfile -->|"🔍 DNS"| CoreDNS
     Helmfile -->|"🔄 GitOps"| ArgoCD
-    
+
     %% Modern vibrant styling
     classDef orchestration fill:#4f46e5,stroke:#4338ca,stroke-width:3px,color:#ffffff
     classDef roles fill:#059669,stroke:#047857,stroke-width:3px,color:#ffffff
     classDef tasks fill:#ea580c,stroke:#c2410c,stroke-width:3px,color:#ffffff
     classDef components fill:#7c2d12,stroke:#92400e,stroke-width:3px,color:#ffffff
     classDef framework fill:#1e293b,stroke:#475569,stroke-width:3px,color:#ffffff
-    
+
     class Setup,Bootstrap,Reset orchestration
     class Prerequisites,Master,Worker,BootstrapRole,ResetRole roles
     class Dependencies,Namespaces,Helmfile,GitOps,Validation,Cleanup tasks
